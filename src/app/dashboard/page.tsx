@@ -19,6 +19,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
+import { Badge } from '@/components/ui/badge';
 import Navbar from '@/components/Navbar';
 import { VolumeChart } from '@/components/dashboard/VolumeChart';
 
@@ -43,10 +44,33 @@ export default async function DashboardPage() {
     redirect('/dashboard/coach');
   }
 
-  // Calculate derived metrics
-  const bmi = (profile?.weight_kg && profile?.height_cm) 
-    ? (profile.weight_kg / Math.pow(profile.height_cm / 100, 2)).toFixed(1) 
-    : '--';
+  // Fetch enrollments (relaxed status check for debugging)
+  const { data: enrollments, error: enrollmentError } = await supabase
+    .from('enrollments')
+    .select(`
+      *,
+      programs (
+        id,
+        title,
+        difficulty,
+        duration_weeks
+      )
+    `)
+    .eq('user_id', session.user.id);
+    // .eq('status', 'active'); // Temporarily removed for debugging
+
+  if (enrollmentError) {
+      console.error('Error fetching enrollments:', enrollmentError);
+  }
+
+  // Use the first enrollment found
+  const enrollment = enrollments && enrollments.length > 0 ? enrollments[0] : null;
+  const activeProgram = enrollment?.programs;
+
+  console.log('User ID:', session.user.id);
+  console.log('Enrollments found:', enrollments);
+
+  // Fetch the first available workout day for the active program (simplified logic for v1)
 
   const calculateAge = (dob: string) => {
       if (!dob) return '--';
@@ -72,6 +96,11 @@ export default async function DashboardPage() {
       if (!level) return 'Beginner';
       return level.charAt(0).toUpperCase() + level.slice(1);
   };
+
+  // Calculate derived metrics
+  const bmi = (profile?.weight_kg && profile?.height_cm) 
+    ? (profile.weight_kg / Math.pow(profile.height_cm / 100, 2)).toFixed(1) 
+    : '--';
 
   // Mock Data for Demo (Integrated with Real Data)
   const stats = [
@@ -127,7 +156,7 @@ export default async function DashboardPage() {
                     </p>
                 </div>
                 <div className="flex items-center gap-2">
-                    <Button variant="outline" className="gap-2">
+                    <Button variant="outline" className="gap-2" suppressHydrationWarning>
                         <Calendar className="h-4 w-4" />
                         {new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                     </Button>
@@ -161,41 +190,60 @@ export default async function DashboardPage() {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 {/* Main Column */}
                 <div className="lg:col-span-2 space-y-8">
-                    {/* Active Program */}
-                    <Card className="border-none shadow-md overflow-hidden relative">
-                        <div className="absolute top-0 right-0 p-6 opacity-10">
-                            <Trophy className="h-48 w-48" />
+                    {/* My Programs List */}
+                    <div className="space-y-4">
+                        <div className="flex items-center justify-between">
+                            <h2 className="text-xl font-bold">My Programs</h2>
+                            <Link href="/marketplace">
+                                <Button variant="ghost" size="sm">Browse More</Button>
+                            </Link>
                         </div>
-                        <CardHeader>
-                            <CardTitle>Active Program</CardTitle>
-                            <CardDescription>Hypertrophy Protocol v2 • Week 4 of 12</CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="space-y-6 relative z-10">
-                                <div className="flex items-center justify-between text-sm">
-                                    <span className="font-medium">Overall Progress</span>
-                                    <span className="text-muted-foreground">32%</span>
-                                </div>
-                                <Progress value={32} className="h-3" />
-                                
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
-                                    <div className="bg-background/50 rounded-lg p-4 border">
-                                        <p className="text-xs text-muted-foreground uppercase font-semibold mb-2">Next Session</p>
-                                        <h4 className="font-bold text-lg">Push Day (Chest & Tris)</h4>
-                                        <p className="text-sm text-muted-foreground mt-1">45 mins • High Intensity</p>
-                                    </div>
-                                    <div className="bg-background/50 rounded-lg p-4 border flex flex-col justify-center">
-                                        <p className="text-xs text-muted-foreground uppercase font-semibold mb-2">Focus</p>
-                                        <div className="flex gap-2 flex-wrap">
-                                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300">
-                                                {formatGoal(profile?.goal)}
-                                            </span>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </CardContent>
-                    </Card>
+
+                        {enrollments && enrollments.length > 0 ? (
+                            enrollments.map((enrollment) => {
+                                const prog = enrollment.programs;
+                                return (
+                                    <Card key={enrollment.id} className="border-none shadow-md overflow-hidden relative group">
+                                        <CardHeader className="pb-3">
+                                            <div className="flex justify-between items-start">
+                                                <div>
+                                                    <CardTitle className="text-lg">{prog.title}</CardTitle>
+                                                    <CardDescription className="capitalize">
+                                                        {prog.difficulty} • {prog.duration_weeks} Weeks
+                                                    </CardDescription>
+                                                </div>
+                                                <Badge variant={enrollment.status === 'active' ? 'default' : 'secondary'}>
+                                                    {enrollment.status || 'Active'}
+                                                </Badge>
+                                            </div>
+                                        </CardHeader>
+                                        <CardContent>
+                                            <div className="flex items-center justify-between mt-2">
+                                                <div className="text-sm text-muted-foreground">
+                                                    <span className="font-medium text-foreground">0%</span> Complete
+                                                </div>
+                                                <Link href={`/program/${prog.id}`}>
+                                                    <Button size="sm" className="gap-2">
+                                                        <Dumbbell className="h-4 w-4" /> Open Program
+                                                    </Button>
+                                                </Link>
+                                            </div>
+                                            <Progress value={0} className="h-1.5 mt-4" />
+                                        </CardContent>
+                                    </Card>
+                                );
+                            })
+                        ) : (
+                            <Card className="border-dashed shadow-sm">
+                                <CardContent className="py-8 text-center">
+                                    <p className="text-muted-foreground mb-4">You aren't enrolled in any programs yet.</p>
+                                    <Link href="/marketplace">
+                                        <Button>Find a Program</Button>
+                                    </Link>
+                                </CardContent>
+                            </Card>
+                        )}
+                    </div>
 
                     {/* Analytics / Chart Placeholder */}
                     <Card className="border-none shadow-sm">

@@ -58,7 +58,24 @@ export default function AssessmentPage() {
     if (!session?.user) return;
 
     try {
-      const { error } = await supabase!
+      // 1. Calculate "Vibe" (Simple logic for now, can be expanded later)
+      let calculatedVibe = 'Balanced';
+      if (data.goal === 'hypertrophy' || data.goal === 'strength') calculatedVibe = 'Power';
+      if (data.goal === 'endurance' || data.goal === 'fat_loss') calculatedVibe = 'Endurance';
+      
+      // 2. Insert into vibe_assessments table
+      const { error: assessmentError } = await supabase!
+        .from('vibe_assessments')
+        .insert({
+          user_id: session.user.id,
+          answers: data as any, // Store full form data as JSON
+          calculated_vibe: calculatedVibe,
+        });
+
+      if (assessmentError) throw assessmentError;
+
+      // 3. Update profiles table
+      const { error: profileError } = await supabase!
         .from('profiles')
         .update({
           gender: data.gender,
@@ -69,12 +86,13 @@ export default function AssessmentPage() {
           experience_level: data.experience_level,
           equipment_access: [data.equipment_access],
           injuries: data.injuries ? [data.injuries] : [],
+          vibe_type: calculatedVibe, // Store the result in profile for quick access
         })
         .eq('id', session.user.id);
 
-      if (error) throw error;
+      if (profileError) throw profileError;
 
-      toast.success('Profile complete!', { description: 'Welcome to your dashboard.' });
+      toast.success('Profile complete!', { description: `Your Vibe: ${calculatedVibe}` });
       router.push('/dashboard');
     } catch (err: any) {
       toast.error('Failed to save', { description: err.message });

@@ -4,6 +4,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import { cookies } from 'next/headers';
 import { createClient } from '@/lib/supabaseServer'; // Correctly import the server-side client
 import { SupabaseProvider } from '@/components/SupabaseProvider'; // Import the new client provider
+import QueryProvider from '@/components/QueryProvider';
 import { Toaster } from "@/components/ui/sonner";
 import "./globals.css";
 
@@ -34,10 +35,12 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
   return (
     <html lang="en" suppressHydrationWarning>
       <body>
-        <SupabaseProvider initialSession={session}>
-          {children}
-          <Toaster />
-        </SupabaseProvider>
+        <QueryProvider>
+          <SupabaseProvider initialSession={session}>
+            {children}
+          </SupabaseProvider>
+        </QueryProvider>
+        <Toaster />
       </body>
     </html>
   );

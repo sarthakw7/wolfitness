@@ -8,6 +8,7 @@ import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
 import { Dumbbell } from 'lucide-react';
+import { useQueryClient } from '@tanstack/react-query';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -31,6 +32,7 @@ type LoginFormValues = z.infer<typeof loginSchema>;
 export default function LoginPage() {
   const router = useRouter();
   const { supabase } = useSupabase();
+  const queryClient = useQueryClient();
   
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
@@ -74,6 +76,10 @@ export default function LoginPage() {
     }
     
     toast.success('Welcome back!');
+    
+    // Force refresh of session and queries
+    await queryClient.invalidateQueries(); 
+    router.refresh(); // Update server components
     router.push('/dashboard');
   };
 

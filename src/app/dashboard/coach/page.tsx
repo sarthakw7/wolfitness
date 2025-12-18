@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabaseServer';
 import { redirect } from 'next/navigation';
+import Link from 'next/link';
 import { 
   Users, 
   DollarSign, 
@@ -8,12 +9,21 @@ import {
   Calendar,
   MoreHorizontal,
   User,
-  Activity
+  Activity,
+  Edit,
+  Settings,
+  Eye
 } from 'lucide-react';
 
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import Navbar from '@/components/Navbar';
 import { RevenueChart } from '@/components/dashboard/RevenueChart';
 
@@ -88,6 +98,13 @@ export default async function CoachDashboardPage() {
     { client: "Jessica L.", status: "Completed", time: "1 day ago", notes: "Shoulder felt a bit tight." },
   ];
 
+  // Fetch real programs
+  const { data: myPrograms } = await supabase
+    .from('programs')
+    .select('*')
+    .eq('coach_id', session.user.id)
+    .order('created_at', { ascending: false });
+
   return (
     <div className="min-h-screen bg-muted/20">
         <Navbar />
@@ -138,6 +155,76 @@ export default async function CoachDashboardPage() {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 {/* Main Column */}
                 <div className="lg:col-span-2 space-y-8">
+                    
+                    {/* My Programs Section */}
+                    <Card className="border-none shadow-sm">
+                        <CardHeader className="flex flex-row items-center justify-between">
+                            <div>
+                                <CardTitle>My Programs</CardTitle>
+                                <CardDescription>Manage your published workouts and training plans.</CardDescription>
+                            </div>
+                            <Link href="/dashboard/coach/programs/new">
+                                <Button size="sm">Create New</Button>
+                            </Link>
+                        </CardHeader>
+                        <CardContent>
+                            {myPrograms && myPrograms.length > 0 ? (
+                                <div className="space-y-4">
+                                    {myPrograms.map((program) => (
+                                        <div key={program.id} className="flex items-center justify-between p-4 rounded-lg border bg-card hover:bg-accent/50 transition-colors">
+                                            <div className="flex items-start gap-4">
+                                                <div className="h-10 w-10 rounded bg-primary/10 flex items-center justify-center text-primary">
+                                                    <Activity className="h-5 w-5" />
+                                                </div>
+                                                <div>
+                                                    <h4 className="font-bold text-sm">{program.title}</h4>
+                                                    <p className="text-xs text-muted-foreground line-clamp-1">{program.description}</p>
+                                                    <div className="flex items-center gap-2 mt-1">
+                                                        <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${program.is_published ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
+                                                            {program.is_published ? 'Published' : 'Draft'}
+                                                        </span>
+                                                        <span className="text-[10px] text-muted-foreground">{program.duration_weeks} Weeks</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div className="text-right flex flex-col items-end gap-1">
+                                                <p className="font-bold text-sm">{program.price === 0 ? 'Free' : `$${program.price}`}</p>
+                                                
+                                                <DropdownMenu>
+                                                    <DropdownMenuTrigger asChild>
+                                                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                                                            <MoreHorizontal className="h-4 w-4" />
+                                                        </Button>
+                                                    </DropdownMenuTrigger>
+                                                    <DropdownMenuContent align="end">
+                                                        <DropdownMenuItem asChild>
+                                                            <Link href={`/dashboard/coach/programs/${program.id}/edit`} className="cursor-pointer">
+                                                                <Activity className="mr-2 h-4 w-4" /> Build Workouts
+                                                            </Link>
+                                                        </DropdownMenuItem>
+                                                        <DropdownMenuItem asChild>
+                                                            <Link href={`/dashboard/coach/programs/${program.id}/settings`} className="cursor-pointer">
+                                                                <Settings className="mr-2 h-4 w-4" /> Edit Details
+                                                            </Link>
+                                                        </DropdownMenuItem>
+                                                        <DropdownMenuItem asChild>
+                                                            <Link href={`/program/${program.id}`} className="cursor-pointer">
+                                                                <Eye className="mr-2 h-4 w-4" /> View Public Page
+                                                            </Link>
+                                                        </DropdownMenuItem>
+                                                    </DropdownMenuContent>
+                                                </DropdownMenu>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <div className="text-center py-8">
+                                    <p className="text-muted-foreground text-sm">You haven't created any programs yet.</p>
+                                </div>
+                            )}
+                        </CardContent>
+                    </Card>
 
                     {/* Revenue Chart Placeholder */}
                     <Card className="border-none shadow-sm">
@@ -243,7 +330,9 @@ export default async function CoachDashboardPage() {
                             <CardTitle>Quick Actions</CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-2">
-                             <Button variant="outline" className="w-full justify-start">Create New Program</Button>
+                             <Link href="/dashboard/coach/programs/new" className="w-full block">
+                                <Button variant="outline" className="w-full justify-start">Create New Program</Button>
+                             </Link>
                              <Button variant="outline" className="w-full justify-start">Review Applications</Button>
                              <Button variant="outline" className="w-full justify-start">Manage Payments</Button>
                         </CardContent>

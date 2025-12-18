@@ -27,6 +27,8 @@ import {
 } from '@/components/ui/navigation-menu';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import { useProfile } from '@/hooks/useProfile';
+import { useQueryClient } from '@tanstack/react-query';
 
 const features: { title: string; href: string; description: string }[] = [
   {
@@ -36,7 +38,7 @@ const features: { title: string; href: string; description: string }[] = [
   },
   {
     title: 'Marketplace',
-    href: '#marketplace',
+    href: '/marketplace',
     description: 'Buy and sell premium workout programs and nutrition guides.',
   },
   {
@@ -49,20 +51,19 @@ const features: { title: string; href: string; description: string }[] = [
 export default function Navbar() {
   const { supabase, session } = useSupabase();
   const router = useRouter();
-  const [profile, setProfile] = React.useState<any>(null);
+  const queryClient = useQueryClient();
+  const [mounted, setMounted] = React.useState(false);
+  
+  // Use React Query hook for profile data
+  const { data: profile } = useProfile();
 
   React.useEffect(() => {
-    async function fetchProfile() {
-      if (session?.user) {
-        const { data } = await supabase!.from('profiles').select('*').eq('id', session.user.id).single();
-        setProfile(data);
-      }
-    }
-    fetchProfile();
-  }, [session, supabase]);
+    setMounted(true);
+  }, []);
 
   const handleSignOut = async () => {
     await supabase!.auth.signOut();
+    queryClient.removeQueries(); // Clear all React Query cache
     router.push('/');
     toast.success('Signed out successfully');
   };
@@ -76,10 +77,14 @@ export default function Navbar() {
     return session?.user.email?.substring(0, 2).toUpperCase() || 'U';
   };
 
+  if (!mounted) {
+    return null; // or a loading skeleton
+  }
+
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-16 items-center max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 justify-between">
-        <div className="mr-4 hidden md:flex">
+        <div className="mr-4 hidden md:flex" suppressHydrationWarning>
           <Link href="/" className="mr-6 flex items-center space-x-2">
             <div className="bg-primary p-1.5 rounded-lg">
                 <Dumbbell className="h-5 w-5 text-primary-foreground" />
@@ -147,7 +152,7 @@ export default function Navbar() {
              <div className="flex flex-col gap-4 py-8 px-6">
                 <Link href="#features" className="text-lg font-medium hover:text-primary">Features</Link>
                 <Link href="#coaches" className="text-lg font-medium hover:text-primary">For Coaches</Link>
-                {session ? (
+                {profile ? (
                     <>
                         <Link href="/dashboard" className="text-lg font-medium hover:text-primary">Dashboard</Link>
                         <button onClick={handleSignOut} className="text-lg font-medium hover:text-primary text-left">Sign Out</button>
@@ -163,7 +168,7 @@ export default function Navbar() {
         </Sheet>
 
         <div className="flex flex-1 items-center justify-end space-x-4">
-            {session ? (
+            {profile ? (
                 <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                         <Button variant="ghost" className="relative h-12 pl-2 pr-4 rounded-full flex items-center gap-3 hover:bg-accent/50 transition-all duration-200">
@@ -185,7 +190,7 @@ export default function Navbar() {
                             <div className="flex flex-col space-y-1">
                                 <p className="text-sm font-medium leading-none">{profile?.full_name || 'User'}</p>
                                 <p className="text-xs leading-none text-muted-foreground">
-                                    {session.user.email}
+                                    {profile?.email || session?.user?.email}
                                 </p>
                             </div>
                         </DropdownMenuLabel>
