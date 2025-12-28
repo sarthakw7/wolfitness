@@ -4,15 +4,14 @@ import Link from 'next/link';
 import { 
   Activity, 
   Calendar, 
-  Clock, 
   Dumbbell, 
   Flame, 
   MoreHorizontal, 
-  TrendingUp, 
+  Target,
   Trophy, 
   User,
   CheckCircle2,
-  Target
+  TrendingUp
 } from 'lucide-react';
 
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -22,6 +21,9 @@ import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import Navbar from '@/components/Navbar';
 import { VolumeChart } from '@/components/dashboard/VolumeChart';
+import { WorkoutHeatmap } from '@/components/dashboard/WorkoutHeatmap';
+
+export const revalidate = 0;
 
 export default async function DashboardPage() {
   const supabase = await createClient();
@@ -39,13 +41,12 @@ export default async function DashboardPage() {
     .eq('id', session.user.id)
     .single();
 
-  // Redirect coaches to their specific dashboard
   if (profile?.role === 'coach') {
     redirect('/dashboard/coach');
   }
 
-  // Fetch enrollments (relaxed status check for debugging)
-  const { data: enrollments, error: enrollmentError } = await supabase
+  // Fetch enrollments
+  const { data: enrollments } = await supabase
     .from('enrollments')
     .select(`
       *,
@@ -57,21 +58,92 @@ export default async function DashboardPage() {
       )
     `)
     .eq('user_id', session.user.id);
-    // .eq('status', 'active'); // Temporarily removed for debugging
 
-  if (enrollmentError) {
-      console.error('Error fetching enrollments:', enrollmentError);
+  // --- ANALYTICS DATA FETCHING ---
+  // Fetch logs for the last 90 days
+  const ninetyDaysAgo = new Date();
+  ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+
+  const { data: logs } = await supabase
+    .from('user_workout_logs')
+    .select('completed_at, weight_kg, reps_completed')
+    .eq('user_id', session.user.id)
+    .gte('completed_at', ninetyDaysAgo.toISOString());
+
+  // Process Logs
+  const processedLogs = (logs || []).map(log => ({
+      date: new Date(log.completed_at).toISOString().split('T')[0],
+      volume: (log.weight_kg || 0) * (log.reps_completed || 0)
+  }));
+
+  // 1. Heatmap Data (Daily Volume)
+  const dailyVolume = processedLogs.reduce((acc, log) => {
+      acc[log.date] = (acc[log.date] || 0) + log.volume;
+      return acc;
+  }, {} as Record<string, number>);
+
+  const heatmapData = Object.entries(dailyVolume).map(([date, volume]) => ({ date, volume }));
+
+  // 2. Weekly Volume Chart
+  const weeklyVolume = processedLogs.reduce((acc, log) => {
+      const date = new Date(log.date);
+      // Get start of week (Sunday)
+      const day = date.getDay();
+      const diff = date.getDate() - day; // adjust when day is sunday
+      const weekStart = new Date(date.setDate(diff)).toISOString().split('T')[0];
+      
+      acc[weekStart] = (acc[weekStart] || 0) + log.volume;
+      return acc;
+  }, {} as Record<string, number>);
+
+  // Fill in last 7 weeks for chart
+  const chartData = [];
+  for (let i = 6; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - (i * 7));
+      const day = d.getDay();
+      const diff = d.getDate() - day;
+      const weekStart = new Date(d.setDate(diff)).toISOString().split('T')[0];
+      
+      chartData.push({
+          name: new Date(weekStart).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+          volume: weeklyVolume[weekStart] || 0
+      });
   }
 
-  // Use the first enrollment found
-  const enrollment = enrollments && enrollments.length > 0 ? enrollments[0] : null;
-  const activeProgram = enrollment?.programs;
+  // 3. Streak Calculation
+  let currentStreak = 0;
+  const today = new Date().toISOString().split('T')[0];
+  const sortedDates = Object.keys(dailyVolume).sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
+  
+  if (sortedDates.length > 0) {
+      // Check if worked out today or yesterday to keep streak alive
+      const lastWorkout = sortedDates[0];
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      const yesterdayStr = yesterday.toISOString().split('T')[0];
 
-  console.log('User ID:', session.user.id);
-  console.log('Enrollments found:', enrollments);
+      if (lastWorkout === today || lastWorkout === yesterdayStr) {
+          currentStreak = 1;
+          // Count backwards
+          let checkDate = new Date(lastWorkout);
+          for (let i = 1; i < sortedDates.length; i++) {
+              checkDate.setDate(checkDate.getDate() - 1);
+              const checkStr = checkDate.toISOString().split('T')[0];
+              if (sortedDates.includes(checkStr)) {
+                  currentStreak++;
+              } else {
+                  break;
+              }
+          }
+      }
+  }
 
-  // Fetch the first available workout day for the active program (simplified logic for v1)
+  // Derived Stats
+  const totalWorkouts = Object.keys(dailyVolume).length;
+  const totalVolume = Object.values(dailyVolume).reduce((a, b) => a + b, 0);
 
+  // Formatting
   const calculateAge = (dob: string) => {
       if (!dob) return '--';
       const birthDate = new Date(dob);
@@ -79,65 +151,40 @@ export default async function DashboardPage() {
       const ageDate = new Date(ageDifMs);
       return Math.abs(ageDate.getUTCFullYear() - 1970);
   };
-
   const age = calculateAge(profile?.date_of_birth);
-
-  const formatGoal = (goal: string) => {
-    switch (goal) {
-      case 'hypertrophy': return 'Muscle Building';
-      case 'strength': return 'Strength Training';
-      case 'fat_loss': return 'Weight Loss';
-      case 'endurance': return 'Endurance Training';
-      default: return 'General Fitness';
-    }
-  };
-
-  const formatExperience = (level: string) => {
-      if (!level) return 'Beginner';
-      return level.charAt(0).toUpperCase() + level.slice(1);
-  };
-
-  // Calculate derived metrics
   const bmi = (profile?.weight_kg && profile?.height_cm) 
     ? (profile.weight_kg / Math.pow(profile.height_cm / 100, 2)).toFixed(1) 
     : '--';
 
-  // Mock Data for Demo (Integrated with Real Data)
   const stats = [
     {
-      title: "Workouts This Week",
-      value: "3/4 Completed",
-      change: "+1 from last week",
-      icon: CheckCircle2,
-      color: "text-blue-500",
-    },
-    {
-      title: "Current Weight",
-      value: profile?.weight_kg ? `${profile.weight_kg} kg` : '-- kg',
-      change: "On track",
-      icon: User,
-      color: "text-green-500",
-    },
-    {
       title: "Active Streak",
-      value: "12 Day Streak",
-      change: "Keep it up!",
+      value: `${currentStreak} Days`,
+      change: currentStreak > 3 ? "On fire! 🔥" : "Keep going!",
       icon: Flame,
       color: "text-orange-500",
     },
     {
-      title: "Program Adherence",
-      value: "92% Consistency",
-      change: "Top 10%",
-      icon: Target,
+      title: "Total Workouts",
+      value: totalWorkouts.toString(),
+      change: "Last 90 Days",
+      icon: Dumbbell,
+      color: "text-blue-500",
+    },
+    {
+      title: "Total Volume",
+      value: `${(totalVolume / 1000).toFixed(1)}k kg`,
+      change: "Lifetime Load",
+      icon: TrendingUp,
+      color: "text-green-500",
+    },
+    {
+      title: "Current Weight",
+      value: profile?.weight_kg ? `${profile.weight_kg} kg` : '-- kg',
+      change: "Body Metric",
+      icon: User,
       color: "text-purple-500",
     },
-  ];
-
-  const recentWorkouts = [
-    { name: "Upper Body Power", date: "Today, 9:00 AM", duration: "45 min", completed: true },
-    { name: "Active Recovery", date: "Yesterday", duration: "30 min", completed: true },
-    { name: "Lower Body Hypertrophy", date: "Mon, Oct 23", duration: "65 min", completed: true },
   ];
 
   return (
@@ -152,17 +199,13 @@ export default async function DashboardPage() {
                         Dashboard
                     </h1>
                     <p className="text-muted-foreground mt-1">
-                        Welcome back, <span className="font-semibold text-foreground">{profile?.full_name || profile?.username || 'Athlete'}</span>. Ready to crush it today?
+                        Welcome back, <span className="font-semibold text-foreground">{profile?.full_name || profile?.username || 'Athlete'}</span>. 
                     </p>
                 </div>
                 <div className="flex items-center gap-2">
                     <Button variant="outline" className="gap-2" suppressHydrationWarning>
                         <Calendar className="h-4 w-4" />
                         {new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                    </Button>
-                    <Button className="gap-2 shadow-lg shadow-primary/20">
-                        <Dumbbell className="h-4 w-4" />
-                        Start Workout
                     </Button>
                 </div>
             </div>
@@ -190,6 +233,30 @@ export default async function DashboardPage() {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 {/* Main Column */}
                 <div className="lg:col-span-2 space-y-8">
+                    
+                    {/* Analytics Section */}
+                    <div className="grid gap-4">
+                        <Card className="border-none shadow-sm">
+                            <CardHeader>
+                                <CardTitle>Activity Heatmap</CardTitle>
+                                <CardDescription>Workout consistency over the last 90 days</CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                                <WorkoutHeatmap logs={heatmapData} todayStr={today} />
+                            </CardContent>
+                        </Card>
+
+                        <Card className="border-none shadow-sm">
+                            <CardHeader>
+                                <CardTitle>Volume Trend</CardTitle>
+                                <CardDescription>Weekly volume load (kg x reps)</CardDescription>
+                            </CardHeader>
+                            <CardContent className="p-6 pt-0">
+                                <VolumeChart data={chartData} />
+                            </CardContent>
+                        </Card>
+                    </div>
+
                     {/* My Programs List */}
                     <div className="space-y-4">
                         <div className="flex items-center justify-between">
@@ -244,17 +311,6 @@ export default async function DashboardPage() {
                             </Card>
                         )}
                     </div>
-
-                    {/* Analytics / Chart Placeholder */}
-                    <Card className="border-none shadow-sm">
-                        <CardHeader>
-                            <CardTitle>Performance Trend</CardTitle>
-                            <CardDescription>Volume load over the last 14 days</CardDescription>
-                        </CardHeader>
-                        <CardContent className="p-6 pt-0">
-                            <VolumeChart />
-                        </CardContent>
-                    </Card>
                 </div>
 
                 {/* Sidebar Column */}
@@ -275,9 +331,6 @@ export default async function DashboardPage() {
                                 <p className="font-bold text-lg">{profile?.full_name || 'Athlete'}</p>
                                 <p className="text-sm text-muted-foreground">@{profile?.username || 'username'}</p>
                                 <div className="mt-2 flex items-center gap-2">
-                                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-muted text-muted-foreground">
-                                        {formatExperience(profile?.experience_level)}
-                                    </span>
                                     {profile?.role === 'coach' && (
                                         <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300">
                                             Coach
@@ -314,58 +367,9 @@ export default async function DashboardPage() {
                             </div>
                         </CardContent>
                     </Card>
-
-                    {/* Recent Activity */}
-                    <Card className="border-none shadow-sm">
-                        <CardHeader>
-                            <div className="flex items-center justify-between">
-                                <CardTitle>Recent Activity</CardTitle>
-                                <Button variant="ghost" size="icon"><MoreHorizontal className="h-4 w-4" /></Button>
-                            </div>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="space-y-6">
-                                {recentWorkouts.map((workout, i) => (
-                                    <div key={i} className="flex items-start gap-4">
-                                        <div className="mt-1 p-2 rounded-full bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400">
-                                            <CheckCircleIcon className="h-4 w-4" />
-                                        </div>
-                                        <div className="flex-1 space-y-1">
-                                            <p className="text-sm font-medium leading-none">{workout.name}</p>
-                                            <p className="text-xs text-muted-foreground">{workout.date} • {workout.duration}</p>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                            <Button variant="link" className="w-full mt-4 text-primary">
-                                View All History
-                            </Button>
-                        </CardContent>
-                    </Card>
                 </div>
             </div>
         </main>
     </div>
   );
 }
-
-// Helper icon component
-function CheckCircleIcon(props: any) {
-    return (
-      <svg
-        {...props}
-        xmlns="http://www.w3.org/2000/svg"
-        width="24"
-        height="24"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      >
-        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
-        <polyline points="22 4 12 14.01 9 11.01" />
-      </svg>
-    )
-  }

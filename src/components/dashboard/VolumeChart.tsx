@@ -2,21 +2,14 @@
 
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 
-const data = [
-  { name: 'Mon', volume: 4000 },
-  { name: 'Tue', volume: 3000 },
-  { name: 'Wed', volume: 2000 },
-  { name: 'Thu', volume: 2780 },
-  { name: 'Fri', volume: 1890 },
-  { name: 'Sat', volume: 2390 },
-  { name: 'Sun', volume: 3490 },
-  { name: 'Mon', volume: 4200 },
-  { name: 'Tue', volume: 4800 },
-  { name: 'Wed', volume: 3800 },
-  { name: 'Thu', volume: 5100 },
-  { name: 'Fri', volume: 4300 },
-  { name: 'Sat', volume: 5800 },
-  { name: 'Sun', volume: 6100 },
+const mockData = [
+  { name: 'Mon', volume: 0 },
+  { name: 'Tue', volume: 0 },
+  { name: 'Wed', volume: 0 },
+  { name: 'Thu', volume: 0 },
+  { name: 'Fri', volume: 0 },
+  { name: 'Sat', volume: 0 },
+  { name: 'Sun', volume: 0 },
 ];
 
 const CustomTooltip = ({ active, payload, label }: any) => {
@@ -33,12 +26,18 @@ const CustomTooltip = ({ active, payload, label }: any) => {
   return null;
 };
 
-export function VolumeChart() {
+interface VolumeChartProps {
+    data?: { name: string; volume: number }[];
+}
+
+export function VolumeChart({ data }: VolumeChartProps) {
+  const chartData = data && data.length > 0 ? data : mockData;
+
   return (
     <div className="h-[300px] w-full">
       <ResponsiveContainer width="100%" height="100%">
         <AreaChart
-          data={data}
+          data={chartData}
           margin={{
             top: 10,
             right: 10,
@@ -66,7 +65,7 @@ export function VolumeChart() {
             fontSize={12} 
             tickLine={false} 
             axisLine={false} 
-            tickFormatter={(value) => `${value / 1000}k`} 
+            tickFormatter={(value) => `${(value / 1000).toFixed(0)}k`} 
           />
           <Tooltip content={<CustomTooltip />} />
           <Area

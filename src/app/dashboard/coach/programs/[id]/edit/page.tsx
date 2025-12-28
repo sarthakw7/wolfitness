@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, use } from 'react';
+import { useState, useEffect, use, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSupabase } from '@/components/SupabaseProvider';
 import { toast } from 'sonner';
@@ -8,20 +8,23 @@ import {
   ArrowLeft, 
   Plus, 
   Trash2, 
-  GripVertical, 
   Save, 
   Loader2,
+  Video,
+  StickyNote,
+  Copy,
+  ChevronUp,
   ChevronDown,
-  ChevronRight,
-  Dumbbell
+  ExternalLink
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
+import { ExercisePicker, GlobalExercise } from '@/components/dashboard/ExercisePicker';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 // Types reflecting our DB schema
 type Exercise = {
@@ -32,6 +35,7 @@ type Exercise = {
   rpe: string;
   rest_seconds: number;
   notes: string;
+  video_url?: string;
 };
 
 type Day = {
@@ -51,43 +55,45 @@ type Week = {
 export default function ProgramEditorPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
   const { id } = use(params); // Unwrap params
-  const { supabase, session } = useSupabase();
+  const { supabase } = useSupabase();
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [programTitle, setProgramTitle] = useState('');
   
   // State for the builder
   const [weeks, setWeeks] = useState<Week[]>([]);
+  const [globalExercises, setGlobalExercises] = useState<GlobalExercise[]>([]);
 
-  useEffect(() => {
-    if (!supabase || !id) {
-        console.log('Waiting for supabase or id...', { supabase: !!supabase, id });
-        return;
-    }
-    fetchProgramData();
-  }, [supabase, id]);
+  const fetchGlobalExercises = useCallback(async () => {
+      if (!supabase) return;
+      const { data, error } = await supabase
+        .from('global_exercises')
+        .select('*')
+        .order('name');
+      
+      if (error) {
+          console.error('Error fetching exercises:', error);
+          toast.error('Failed to load exercise library');
+      } else {
+          setGlobalExercises(data || []);
+      }
+  }, [supabase]);
 
-  const fetchProgramData = async () => {
-    console.log('Starting fetchProgramData for ID:', id);
+  const fetchProgramData = useCallback(async () => {
+    if (!supabase || !id) return;
     try {
       // 1. Fetch Program Info
-      console.log('Fetching program metadata...');
-      const { data: program, error: progError } = await supabase!
+      const { data: program, error: progError } = await supabase
         .from('programs')
         .select('title, duration_weeks')
         .eq('id', id)
         .single();
 
-      if (progError) {
-          console.error('Program fetch error:', progError);
-          throw progError;
-      }
-      console.log('Program metadata loaded:', program);
+      if (progError) throw progError;
       setProgramTitle(program.title);
 
       // 2. Fetch Hierarchy (Weeks -> Days -> Exercises)
-      console.log('Fetching program hierarchy...');
-      const { data: existingWeeks, error: weeksError } = await supabase!
+      const { data: existingWeeks, error: weeksError } = await supabase
         .from('program_weeks')
         .select(`
           id, 
@@ -105,6 +111,7 @@ export default function ProgramEditorPage({ params }: { params: Promise<{ id: st
               rpe,
               rest_seconds,
               notes,
+              video_url,
               order_index
             )
           )
@@ -112,11 +119,7 @@ export default function ProgramEditorPage({ params }: { params: Promise<{ id: st
         .eq('program_id', id)
         .order('week_number');
 
-      if (weeksError) {
-          console.error('Weeks fetch error:', weeksError);
-          throw weeksError;
-      }
-      console.log('Hierarchy loaded:', existingWeeks?.length, 'weeks found');
+      if (weeksError) throw weeksError;
 
       if (existingWeeks && existingWeeks.length > 0) {
         // Transform DB data to State
@@ -124,18 +127,18 @@ export default function ProgramEditorPage({ params }: { params: Promise<{ id: st
           id: w.id,
           week_number: w.week_number,
           title: w.title || `Week ${w.week_number}`,
-          days: w.program_days?.sort((a,b) => a.day_number - b.day_number).map(d => ({
+          days: w.program_days?.sort((a, b) => a.day_number - b.day_number).map(d => ({
              id: d.id,
              day_number: d.day_number,
              title: d.title || `Day ${d.day_number}`,
-             exercises: (d.program_exercises || []).sort((a: any, b: any) => (a.order_index || 0) - (b.order_index || 0))
+             exercises: (d.program_exercises || [])
+               .sort((a: { order_index: number }, b: { order_index: number }) => (a.order_index || 0) - (b.order_index || 0))
           })) || []
         }));
         setWeeks(formattedWeeks);
       } else {
         // Initialize empty weeks based on duration
         const duration = program.duration_weeks || 4; // Default to 4 if null
-        console.log('Initializing empty state with duration:', duration);
         const initialWeeks = Array.from({ length: duration }).map((_, i) => ({
            week_number: i + 1,
            title: `Week ${i + 1}`,
@@ -147,11 +150,23 @@ export default function ProgramEditorPage({ params }: { params: Promise<{ id: st
     } catch (error: any) {
       console.error('CRITICAL ERROR in fetchProgramData:', error);
       toast.error('Error loading program', { description: error.message });
-    } finally {
-      console.log('Finished fetchProgramData, setting isLoading to false');
-      setIsLoading(false);
     }
-  };
+  }, [supabase, id]);
+
+  useEffect(() => {
+    if (!supabase || !id) {
+        return;
+    }
+    const init = async () => {
+        setIsLoading(true);
+        await Promise.all([
+            fetchProgramData(),
+            fetchGlobalExercises()
+        ]);
+        setIsLoading(false);
+    };
+    init();
+  }, [supabase, id, fetchProgramData, fetchGlobalExercises]);
 
   // --- Actions ---
 
@@ -166,6 +181,22 @@ export default function ProgramEditorPage({ params }: { params: Promise<{ id: st
     setWeeks(newWeeks);
   };
 
+  const duplicateDay = (weekIndex: number, dayIndex: number) => {
+    const newWeeks = [...weeks];
+    const dayToCopy = newWeeks[weekIndex].days[dayIndex];
+    
+    // Deep copy exercises to avoid reference issues and clear IDs
+    const copiedExercises = dayToCopy.exercises.map(ex => ({ ...ex, id: undefined })); 
+    
+    newWeeks[weekIndex].days.push({
+        day_number: newWeeks[weekIndex].days.length + 1,
+        title: `${dayToCopy.title} (Copy)`,
+        exercises: copiedExercises
+    });
+    setWeeks(newWeeks);
+    toast.success('Day duplicated');
+  };
+
   const addExercise = (weekIndex: number, dayIndex: number) => {
     const newWeeks = [...weeks];
     newWeeks[weekIndex].days[dayIndex].exercises.push({
@@ -174,8 +205,32 @@ export default function ProgramEditorPage({ params }: { params: Promise<{ id: st
       reps: '10',
       rpe: '8',
       rest_seconds: 60,
-      notes: ''
+      notes: '',
+      video_url: ''
     });
+    setWeeks(newWeeks);
+  };
+
+  const duplicateExercise = (weekIndex: number, dayIndex: number, exerciseIndex: number) => {
+    const newWeeks = [...weeks];
+    const exercises = newWeeks[weekIndex].days[dayIndex].exercises;
+    const exToCopy = exercises[exerciseIndex];
+    
+    const newExercise = { ...exToCopy, id: undefined }; // Clear ID
+    
+    exercises.splice(exerciseIndex + 1, 0, newExercise);
+    setWeeks(newWeeks);
+  };
+
+  const moveExercise = (weekIndex: number, dayIndex: number, exerciseIndex: number, direction: 'up' | 'down') => {
+    const newWeeks = [...weeks];
+    const exercises = newWeeks[weekIndex].days[dayIndex].exercises;
+    
+    if (direction === 'up' && exerciseIndex > 0) {
+        [exercises[exerciseIndex], exercises[exerciseIndex - 1]] = [exercises[exerciseIndex - 1], exercises[exerciseIndex]];
+    } else if (direction === 'down' && exerciseIndex < exercises.length - 1) {
+        [exercises[exerciseIndex], exercises[exerciseIndex + 1]] = [exercises[exerciseIndex + 1], exercises[exerciseIndex]];
+    }
     setWeeks(newWeeks);
   };
 
@@ -195,6 +250,19 @@ export default function ProgramEditorPage({ params }: { params: Promise<{ id: st
     setWeeks(newWeeks);
   };
 
+  const updateExerciseFromPicker = (weekIndex: number, dayIndex: number, exerciseIndex: number, selected: GlobalExercise) => {
+    const newWeeks = [...weeks];
+    const target = newWeeks[weekIndex].days[dayIndex].exercises[exerciseIndex];
+    
+    target.exercise_name = selected.name;
+    // Auto-fill video if available
+    if (selected.video_url) {
+        target.video_url = selected.video_url;
+    }
+    
+    setWeeks(newWeeks);
+  };
+
   const removeExercise = (weekIndex: number, dayIndex: number, exerciseIndex: number) => {
       const newWeeks = [...weeks];
       newWeeks[weekIndex].days[dayIndex].exercises.splice(exerciseIndex, 1);
@@ -204,47 +272,79 @@ export default function ProgramEditorPage({ params }: { params: Promise<{ id: st
   const handleSave = async () => {
     setIsSaving(true);
     try {
-        // This is a "naive" save strategy: Delete all old structure and recreate.
-        // For a production app, you'd want to upsert/diff to preserve IDs and logs.
-        // BUT for MVP, it ensures sync without complex diffing logic.
+        // Strategy: Lookup-First Sync
+        // We ensure we match existing Weeks/Days by their natural keys (program_id + week_number, week_id + day_number)
+        // to prevent duplicates.
         
-        // 1. Delete existing structure (Cascading delete handles children)
-        // Only if we fetched existing IDs. 
-        // Actually, safer to UPSERT. But Supabase doesn't support deep nested upsert easily.
-        // Let's just create active weeks.
-        
-        // Strategy: Iterate and Insert.
         for (const week of weeks) {
-            // A. Insert/Get Week
             let weekId = week.id;
-            if (!weekId) {
-                const { data: wData, error: wError } = await supabase!
+            
+            // 1. Resolve Week ID (Find or Insert)
+            // Try to find existing week by number for this program
+            const { data: existingWeek, error: wFetchError } = await supabase!
+                .from('program_weeks')
+                .select('id')
+                .eq('program_id', id)
+                .eq('week_number', week.week_number)
+                .single(); // Should be unique
+            
+            if (existingWeek) {
+                weekId = existingWeek.id;
+                // Optional: Update title if changed
+                await supabase!
+                    .from('program_weeks')
+                    .update({ title: week.title })
+                    .eq('id', weekId);
+            } else {
+                // Insert new
+                 const { data: newWeek, error: wInsertError } = await supabase!
                     .from('program_weeks')
                     .insert({ program_id: id, week_number: week.week_number, title: week.title })
                     .select('id')
                     .single();
-                if (wError) throw wError;
-                weekId = wData.id;
+                 if (wInsertError) throw wInsertError;
+                 weekId = newWeek.id;
             }
 
             for (const day of week.days) {
-                // B. Insert/Get Day
                 let dayId = day.id;
-                if (!dayId) {
-                     const { data: dData, error: dError } = await supabase!
+
+                // 2. Resolve Day ID (Find or Insert)
+                const { data: existingDay, error: dFetchError } = await supabase!
+                    .from('program_days')
+                    .select('id')
+                    .eq('week_id', weekId)
+                    .eq('day_number', day.day_number)
+                    .single();
+
+                if (existingDay) {
+                    dayId = existingDay.id;
+                    await supabase!
+                        .from('program_days')
+                        .update({ title: day.title })
+                        .eq('id', dayId);
+                } else {
+                     const { data: newDay, error: dInsertError } = await supabase!
                         .from('program_days')
                         .insert({ week_id: weekId, day_number: day.day_number, title: day.title })
                         .select('id')
                         .single();
-                     if (dError) throw dError;
-                     dayId = dData.id;
+                     if (dInsertError) throw dInsertError;
+                     dayId = newDay.id;
                 }
 
-                // C. Sync Exercises (Delete old for this day, Insert new)
-                // We wipe exercises for the day and re-add to manage order/deletions simply
+                // 3. Sync Exercises
                 if (dayId) {
-                    await supabase!.from('program_exercises').delete().eq('day_id', dayId);
+                    // Delete ALL existing exercises for this day to perform a clean sync
+                    // This handles deletions, reordering, and updates robustly.
+                    const { error: delError } = await supabase!
+                        .from('program_exercises')
+                        .delete()
+                        .eq('day_id', dayId);
                     
+                    if (delError) throw delError;
+                    
+                    // Insert current state
                     const exercisesToInsert = day.exercises.map((ex, idx) => ({
                         day_id: dayId,
                         exercise_name: ex.exercise_name,
@@ -253,6 +353,7 @@ export default function ProgramEditorPage({ params }: { params: Promise<{ id: st
                         rpe: ex.rpe,
                         rest_seconds: ex.rest_seconds,
                         notes: ex.notes,
+                        video_url: ex.video_url,
                         order_index: idx
                     }));
                     
@@ -267,8 +368,8 @@ export default function ProgramEditorPage({ params }: { params: Promise<{ id: st
         }
 
         toast.success('Program saved successfully');
-        // Refresh data to get new IDs
-        fetchProgramData();
+        // Refresh data to get new IDs and clean state
+        await fetchProgramData();
         
     } catch (error: any) {
         console.error(error);
@@ -283,6 +384,7 @@ export default function ProgramEditorPage({ params }: { params: Promise<{ id: st
   }
 
   return (
+    <TooltipProvider>
     <div className="min-h-screen bg-muted/20 pb-20">
       {/* Header */}
       <div className="bg-background border-b sticky top-0 z-10 px-4 py-4 sm:px-6 lg:px-8 flex items-center justify-between shadow-sm">
@@ -338,54 +440,137 @@ export default function ProgramEditorPage({ params }: { params: Promise<{ id: st
                                                     className="h-8 w-[200px] font-medium bg-transparent border-transparent hover:border-input focus:bg-background"
                                                 />
                                              </div>
+                                             <Tooltip>
+                                                <TooltipTrigger asChild>
+                                                    <Button variant="ghost" size="icon" onClick={() => duplicateDay(wIdx, dIdx)}>
+                                                        <Copy className="h-4 w-4 text-muted-foreground" />
+                                                    </Button>
+                                                </TooltipTrigger>
+                                                <TooltipContent><p>Duplicate Day</p></TooltipContent>
+                                             </Tooltip>
                                          </CardHeader>
                                          <CardContent className="p-4 space-y-3">
                                              {day.exercises.map((ex, eIdx) => (
                                                  <div key={eIdx} className="flex gap-3 items-start p-3 rounded-md bg-muted/10 border hover:border-primary/30 transition-colors group">
-                                                     <GripVertical className="h-5 w-5 text-muted-foreground mt-2 cursor-grab" />
-                                                     <div className="grid grid-cols-12 gap-3 flex-1">
-                                                         <div className="col-span-12 sm:col-span-4">
-                                                             <Label className="text-xs text-muted-foreground">Exercise</Label>
-                                                             <Input 
-                                                                placeholder="e.g. Squat" 
-                                                                value={ex.exercise_name}
-                                                                onChange={(e) => updateExercise(wIdx, dIdx, eIdx, 'exercise_name', e.target.value)}
-                                                             />
+                                                     {/* Move Controls */}
+                                                     <div className="flex flex-col gap-1 mt-1">
+                                                         <Button 
+                                                            variant="ghost" 
+                                                            size="icon" 
+                                                            className="h-5 w-5 text-muted-foreground hover:text-foreground"
+                                                            disabled={eIdx === 0}
+                                                            onClick={() => moveExercise(wIdx, dIdx, eIdx, 'up')}
+                                                         >
+                                                             <ChevronUp className="h-4 w-4" />
+                                                         </Button>
+                                                         <Button 
+                                                            variant="ghost" 
+                                                            size="icon" 
+                                                            className="h-5 w-5 text-muted-foreground hover:text-foreground"
+                                                            disabled={eIdx === day.exercises.length - 1}
+                                                            onClick={() => moveExercise(wIdx, dIdx, eIdx, 'down')}
+                                                         >
+                                                             <ChevronDown className="h-4 w-4" />
+                                                         </Button>
+                                                     </div>
+
+                                                     <div className="flex-1 space-y-3">
+                                                         {/* Row 1: Main Stats */}
+                                                         <div className="grid grid-cols-12 gap-3">
+                                                            <div className="col-span-12 sm:col-span-4">
+                                                                <Label className="text-xs text-muted-foreground">Exercise</Label>
+                                                                <ExercisePicker
+                                                                    value={ex.exercise_name}
+                                                                    exercises={globalExercises}
+                                                                    onSelect={(selected) => updateExerciseFromPicker(wIdx, dIdx, eIdx, selected)}
+                                                                    onChangeName={(name) => updateExercise(wIdx, dIdx, eIdx, 'exercise_name', name)}
+                                                                />
+                                                            </div>
+                                                            <div className="col-span-3 sm:col-span-2">
+                                                                <Label className="text-xs text-muted-foreground">Sets</Label>
+                                                                <Input 
+                                                                    type="number" 
+                                                                    value={ex.sets || ''}
+                                                                    onChange={(e) => updateExercise(wIdx, dIdx, eIdx, 'sets', e.target.value === '' ? 0 : parseInt(e.target.value))}
+                                                                />
+                                                            </div>
+                                                            <div className="col-span-3 sm:col-span-2">
+                                                                <Label className="text-xs text-muted-foreground">Reps</Label>
+                                                                <Input 
+                                                                    value={ex.reps}
+                                                                    onChange={(e) => updateExercise(wIdx, dIdx, eIdx, 'reps', e.target.value)}
+                                                                />
+                                                            </div>
+                                                            <div className="col-span-3 sm:col-span-2">
+                                                                <Label className="text-xs text-muted-foreground">RPE</Label>
+                                                                <Input 
+                                                                    value={ex.rpe}
+                                                                    onChange={(e) => updateExercise(wIdx, dIdx, eIdx, 'rpe', e.target.value)}
+                                                                />
+                                                            </div>
+                                                            <div className="col-span-3 sm:col-span-2">
+                                                                <Label className="text-xs text-muted-foreground">Rest (s)</Label>
+                                                                <Input 
+                                                                    type="number"
+                                                                    value={ex.rest_seconds || ''}
+                                                                    onChange={(e) => updateExercise(wIdx, dIdx, eIdx, 'rest_seconds', e.target.value === '' ? 0 : parseInt(e.target.value))}
+                                                                />
+                                                            </div>
                                                          </div>
-                                                         <div className="col-span-3 sm:col-span-2">
-                                                             <Label className="text-xs text-muted-foreground">Sets</Label>
-                                                             <Input 
-                                                                type="number" 
-                                                                value={ex.sets || ''}
-                                                                onChange={(e) => updateExercise(wIdx, dIdx, eIdx, 'sets', e.target.value === '' ? 0 : parseInt(e.target.value))}
-                                                             />
-                                                         </div>
-                                                         <div className="col-span-3 sm:col-span-2">
-                                                             <Label className="text-xs text-muted-foreground">Reps</Label>
-                                                             <Input 
-                                                                value={ex.reps}
-                                                                onChange={(e) => updateExercise(wIdx, dIdx, eIdx, 'reps', e.target.value)}
-                                                             />
-                                                         </div>
-                                                         <div className="col-span-3 sm:col-span-2">
-                                                             <Label className="text-xs text-muted-foreground">RPE</Label>
-                                                             <Input 
-                                                                value={ex.rpe}
-                                                                onChange={(e) => updateExercise(wIdx, dIdx, eIdx, 'rpe', e.target.value)}
-                                                             />
-                                                         </div>
-                                                         <div className="col-span-3 sm:col-span-2">
-                                                             <Label className="text-xs text-muted-foreground">Rest (s)</Label>
-                                                             <Input 
-                                                                type="number"
-                                                                value={ex.rest_seconds || ''}
-                                                                onChange={(e) => updateExercise(wIdx, dIdx, eIdx, 'rest_seconds', e.target.value === '' ? 0 : parseInt(e.target.value))}
-                                                             />
+
+                                                         {/* Row 2: Details (Video & Notes) */}
+                                                         <div className="grid grid-cols-12 gap-3 pt-1">
+                                                             <div className="col-span-12 sm:col-span-6 relative">
+                                                                 {ex.video_url ? (
+                                                                     <a 
+                                                                        href={ex.video_url} 
+                                                                        target="_blank" 
+                                                                        rel="noopener noreferrer"
+                                                                        className="absolute top-2.5 left-2.5 text-blue-500 hover:text-blue-700 z-10"
+                                                                     >
+                                                                         <ExternalLink className="h-4 w-4" />
+                                                                     </a>
+                                                                 ) : (
+                                                                     <Video className="h-4 w-4 absolute top-2.5 left-2.5 text-muted-foreground" />
+                                                                 )}
+                                                                 <Input 
+                                                                    className="pl-9" 
+                                                                    placeholder="Video URL (optional)" 
+                                                                    value={ex.video_url || ''}
+                                                                    onChange={(e) => updateExercise(wIdx, dIdx, eIdx, 'video_url', e.target.value)}
+                                                                 />
+                                                             </div>
+                                                             <div className="col-span-12 sm:col-span-6 relative">
+                                                                 <StickyNote className="h-4 w-4 absolute top-2.5 left-2.5 text-muted-foreground" />
+                                                                 <Input 
+                                                                    className="pl-9" 
+                                                                    placeholder="Notes (optional)" 
+                                                                    value={ex.notes || ''}
+                                                                    onChange={(e) => updateExercise(wIdx, dIdx, eIdx, 'notes', e.target.value)}
+                                                                 />
+                                                             </div>
                                                          </div>
                                                      </div>
-                                                     <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-red-500 mt-5" onClick={() => removeExercise(wIdx, dIdx, eIdx)}>
-                                                         <Trash2 className="h-4 w-4" />
-                                                     </Button>
+
+                                                     {/* Actions */}
+                                                     <div className="flex flex-col gap-1 mt-1">
+                                                        <Tooltip>
+                                                            <TooltipTrigger asChild>
+                                                                <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-blue-500" onClick={() => duplicateExercise(wIdx, dIdx, eIdx)}>
+                                                                    <Copy className="h-4 w-4" />
+                                                                </Button>
+                                                            </TooltipTrigger>
+                                                            <TooltipContent><p>Duplicate</p></TooltipContent>
+                                                        </Tooltip>
+                                                        <Tooltip>
+                                                            <TooltipTrigger asChild>
+                                                                <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-red-500" onClick={() => removeExercise(wIdx, dIdx, eIdx)}>
+                                                                    <Trash2 className="h-4 w-4" />
+                                                                </Button>
+                                                            </TooltipTrigger>
+                                                            <TooltipContent><p>Remove</p></TooltipContent>
+                                                        </Tooltip>
+                                                     </div>
                                                  </div>
                                              ))}
                                              <Button variant="outline" size="sm" className="w-full border-dashed" onClick={() => addExercise(wIdx, dIdx)}>
@@ -407,5 +592,6 @@ export default function ProgramEditorPage({ params }: { params: Promise<{ id: st
           </Accordion>
       </div>
     </div>
+    </TooltipProvider>
   );
 }

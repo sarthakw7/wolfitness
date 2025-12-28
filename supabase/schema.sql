@@ -254,6 +254,17 @@ CREATE POLICY "Coaches can insert weeks" ON public.program_weeks FOR INSERT WITH
 CREATE POLICY "Coaches can insert days" ON public.program_days FOR INSERT WITH CHECK (auth.role() = 'authenticated');
 CREATE POLICY "Coaches can insert exercises" ON public.program_exercises FOR INSERT WITH CHECK (auth.role() = 'authenticated');
 
+
+-- FIX: Add missing UPDATE/DELETE policies for Program Builder
+CREATE POLICY "Coaches can update weeks" ON public.program_weeks FOR UPDATE USING (auth.role() = 'authenticated');
+CREATE POLICY "Coaches can delete weeks" ON public.program_weeks FOR DELETE USING (auth.role() = 'authenticated');
+
+CREATE POLICY "Coaches can update days" ON public.program_days FOR UPDATE USING (auth.role() = 'authenticated');
+CREATE POLICY "Coaches can delete days" ON public.program_days FOR DELETE USING (auth.role() = 'authenticated');
+
+CREATE POLICY "Coaches can update exercises" ON public.program_exercises FOR UPDATE USING (auth.role() = 'authenticated');
+CREATE POLICY "Coaches can delete exercises" ON public.program_exercises FOR DELETE USING (auth.role() = 'authenticated');
+
 -- 13. User Workout Logs (Tracking Progress)
 CREATE TABLE public.user_workout_logs (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
@@ -277,7 +288,34 @@ CREATE TABLE public.user_workout_logs (
 -- RLS Policies for Logs
 ALTER TABLE public.user_workout_logs ENABLE ROW LEVEL SECURITY;
 
--- Users can view and manage their own logs
+-- Users can manage own logs
 CREATE POLICY "Users can manage own logs" 
 ON public.user_workout_logs FOR ALL 
 USING (auth.uid() = user_id);
+
+-- 14. Global Exercise Library (Standardized Data)
+CREATE TABLE public.global_exercises (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  name TEXT NOT NULL UNIQUE,
+  muscle_group TEXT, -- e.g., "Legs", "Chest", "Back"
+  video_url TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- RLS: Everyone can read, only Admin (service role) can write (for now)
+ALTER TABLE public.global_exercises ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Everyone can view exercises" ON public.global_exercises FOR SELECT USING (true);
+
+-- SEED DATA (Common Exercises)
+INSERT INTO public.global_exercises (name, muscle_group, video_url) VALUES
+('Barbell Back Squat', 'Legs', 'https://www.youtube.com/watch?v=ultWZbGWL54'),
+('Barbell Bench Press', 'Chest', 'https://www.youtube.com/watch?v=rT7DgCr-3pg'),
+('Deadlift', 'Back', 'https://www.youtube.com/watch?v=op9kVnSso6Q'),
+('Overhead Press', 'Shoulders', 'https://www.youtube.com/watch?v=qaQPfi8f27E'),
+('Pull Up', 'Back', 'https://www.youtube.com/watch?v=eGo4IYlbE5g'),
+('Dumbbell Row', 'Back', 'https://www.youtube.com/watch?v=roCP6wCXPqo'),
+('Lunges', 'Legs', 'https://www.youtube.com/watch?v=QOVaHwm-Q6U'),
+('Plank', 'Core', 'https://www.youtube.com/watch?v=pSHjTRCQxIw'),
+('Push Up', 'Chest', 'https://www.youtube.com/watch?v=IODxDxX7oi4'),
+('Bicep Curl', 'Arms', 'https://www.youtube.com/watch?v=ykJmrZ5v0Oo')
+ON CONFLICT (name) DO NOTHING;
