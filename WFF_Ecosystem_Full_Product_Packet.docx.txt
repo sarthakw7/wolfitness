@@ -1,0 +1,105 @@
+﻿PROJECT WFF ECOSYSTEM — FULL PRODUCT PACKET (Developer Edition)
+Codename: WFF Ecosystem v1
+Brand name intentionally hidden until launch.
+
+1. PRODUCT OVERVIEW DOCUMENT (POD)
+Vision: Build the most advanced global fitness ecosystem — combining a marketplace, AI-driven coaching, performance analytics, and a community training network.
+Mission: Deliver a modern, immersive platform where consumers train smarter, and creators monetize globally.
+Target Users:
+- Consumers
+- Coaches / Influencers / Gyms
+- Internal Admin Team
+Release Strategy: v1 Foundation → v2 Creator Tools → v3 AI Engine → v4 Wearables → v5 Marketplace Expansion
+2. BUSINESS REQUIREMENTS DOCUMENT (BRD)
+Covers end-to-end flows:
+Consumer Journey:
+Landing → Signup → Vibe → Category Selection → Payment → Trial → Dashboard → Workout → Progress
+Coach Journey:
+Verification → Storefront → Program Builder → Team Management → Payouts → Analytics
+Admin Journey:
+Moderation → Approvals → Support → Revenue Monitoring
+3. FUNCTIONAL REQUIREMENTS DOCUMENT (FRD)
+Modules:
+- Authentication & Roles
+- Vibe Assessment Engine
+- Marketplace
+- Subscription & Billing
+- Program Engine
+- Daily Workout System
+- Analytics Engine
+- Coach Panel
+- Admin Console
+4. TECHNICAL ARCHITECTURE DOCUMENT (TAD)
+Backend: Supabase (Auth, DB, Storage, Edge Functions, RLS)
+Frontend: React + TypeScript + Tailwind + ShadCN
+AI: Azure OpenAI for recommendations, insights, and workout plans
+Storage: Secure buckets with RLS-based access
+Realtime: Supabase Channels for workouts, messages, analytics
+5. DATABASE SCHEMA DOCUMENT (DSD)
+Key Tables:
+- users
+- profiles
+- vibe_assessments
+- sectors
+- programs
+- workouts
+- workout_blocks
+- subscriptions
+- user_workout_logs
+- performance_analytics
+- creator_stores
+- payouts
+All tables fully defined with indexes, constraints, and RLS policies.
+6. API CONTRACT (OpenAPI Spec Summary)
+API Groups:
+- /auth
+- /vibe
+- /marketplace
+- /subscriptions
+- /program
+- /workout
+- /analytics
+- /coach
+- /admin
+Each endpoint includes request, response, errors, and RBAC mapping.
+7. UX & UI DOCUMENTATION
+Wireframes (High-Level):
+- Landing Page
+- Signup Flow
+- Vibe Assessment
+- Marketplace
+- Program View
+- Dashboard
+- Workout Session
+- Coach Panel
+- Admin Console
+All views support mobile-first design.
+8. SPRINT & RELEASE PLAN (13 Weeks)
+Week 1–2: Core Infrastructure (Auth, DB, RLS, Base UI)
+Week 3–4: Vibe Engine & Recommendation Logic
+Week 5–6: Marketplace
+Week 7: Subscriptions + Payments
+Week 8–10: Dashboard + Workout Engine + Analytics
+Week 11–12: Creator Panel + Program Builder
+Week 13: QA + Harden + Prepare Launch
+9. SECURITY DOCUMENTATION
+RLS Rules cover: users, programs, logs, subscriptions, videos
+Strict role-based access:
+- consumer
+- coach
+- admin
+Secure file storage with per-user access rules
+JWT required for every API call
+10. GOVERNANCE & ENGINEERING PLAYBOOK
+Code Standards:
+- Folder structure
+- Naming conventions
+- PR rules
+- CI/CD workflow
+Branching Model:
+develop → feature → staging → release
+Monitoring & logging via Supabase and custom event logs
+11. SECRET BRAND PROTOCOL
+Brand name hidden in all internal docs.
+Codename used everywhere: “WFF Ecosystem v1”.
+No logos, no URLs, no branding until launch day.

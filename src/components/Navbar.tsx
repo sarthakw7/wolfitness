@@ -3,7 +3,7 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Menu, Dumbbell, LogOut, User, LayoutDashboard, ChevronDown } from 'lucide-react';
+import { Menu, Dumbbell, LogOut, User, LayoutDashboard, ChevronDown, ShieldCheck } from 'lucide-react';
 import { useSupabase } from '@/components/SupabaseProvider';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
@@ -29,6 +29,8 @@ import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { useProfile } from '@/hooks/useProfile';
 import { useQueryClient } from '@tanstack/react-query';
+import { AppSwitcher } from '@/components/ui/AppSwitcher';
+import { ModeToggle } from '@/components/ui/ModeToggle';
 
 const features: { title: string; href: string; description: string }[] = [
   {
@@ -81,16 +83,16 @@ export default function Navbar() {
   }
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/80 backdrop-blur-md shadow-sm transition-all duration-300">
-      <div className="container flex h-16 items-center max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 justify-between">
+    <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/80 backdrop-blur-md transition-all duration-300">
+      <div className="w-full flex h-14 items-center px-4 sm:px-8 md:px-12 justify-between">
         {/* Logo & Desktop Nav */}
         <div className="mr-4 hidden md:flex" suppressHydrationWarning>
           <Link href="/" className="mr-8 flex items-center space-x-2 group">
             <div className="bg-primary/10 p-1.5 rounded-xl group-hover:bg-primary/20 transition-colors">
                 <Dumbbell className="h-5 w-5 text-primary" />
             </div>
-            <span className="hidden font-extrabold sm:inline-block tracking-tight text-lg">
-              WFF <span className="text-primary">Ecosystem</span>
+            <span className="hidden font-extrabold sm:inline-block tracking-tighter text-lg uppercase italic">
+              WOLFITNESS
             </span>
           </Link>
           <NavigationMenu>
@@ -106,8 +108,8 @@ export default function Navbar() {
                           href="/"
                         >
                           <Dumbbell className="h-6 w-6 text-primary mb-4" />
-                          <div className="mb-2 text-lg font-medium">
-                            WFF Ecosystem
+                          <div className="mb-2 text-lg font-black uppercase tracking-tight">
+                            WOLFITNESS
                           </div>
                           <p className="text-sm leading-tight text-muted-foreground">
                             The future of connected fitness. Train smarter, not harder.
@@ -152,7 +154,7 @@ export default function Navbar() {
                   <div className="bg-primary/10 p-1.5 rounded-lg">
                       <Dumbbell className="h-5 w-5 text-primary" />
                   </div>
-                  <span className="font-bold text-lg">WFF Ecosystem</span>
+                  <span className="font-black text-lg uppercase tracking-tight">WOLFITNESS</span>
                 </Link>
              </div>
              <div className="flex flex-col gap-6 py-8 px-6">
@@ -160,6 +162,11 @@ export default function Navbar() {
                     <h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wider">Menu</h4>
                     <Link href="#features" className="block text-lg font-medium hover:text-primary transition-colors">Features</Link>
                     <Link href="/marketplace" className="block text-lg font-medium hover:text-primary transition-colors">Marketplace</Link>
+                    {profile?.role === 'admin' && (
+                      <Link href="/admin" className="block text-lg font-black text-blue-500 hover:text-blue-400 transition-colors uppercase tracking-wider">
+                        Admin Panel
+                      </Link>
+                    )}
                 </div>
                 
                 <div className="space-y-3">
@@ -181,7 +188,9 @@ export default function Navbar() {
         </Sheet>
 
         {/* User Auth Buttons */}
-        <div className="flex flex-1 items-center justify-end space-x-4">
+        <div className="flex flex-1 items-center justify-end space-x-2 sm:space-x-4">
+            <ModeToggle />
+            <AppSwitcher />
             {profile ? (
                 <DropdownMenu>
                     <DropdownMenuTrigger asChild>
@@ -214,6 +223,14 @@ export default function Navbar() {
                                 <span>Dashboard</span>
                             </Link>
                         </DropdownMenuItem>
+                        {profile?.role === 'admin' && (
+                          <DropdownMenuItem asChild className="rounded-lg cursor-pointer bg-blue-500/10 text-blue-500 focus:bg-blue-500/20 focus:text-blue-500">
+                              <Link href="/admin">
+                                  <ShieldCheck className="mr-2 h-4 w-4" />
+                                  <span>Admin Panel</span>
+                              </Link>
+                          </DropdownMenuItem>
+                        )}
                         <DropdownMenuItem asChild className="rounded-lg cursor-pointer">
                             <Link href="/profile">
                                 <User className="mr-2 h-4 w-4" />

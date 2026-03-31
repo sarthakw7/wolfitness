@@ -6,6 +6,7 @@ import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useSupabase } from '@/components/SupabaseProvider';
+import { useProfile } from '@/hooks/useProfile';
 import { toast } from 'sonner';
 import { Loader2, ArrowLeft, Save, Trash2 } from 'lucide-react';
 import Link from 'next/link';
@@ -46,6 +47,7 @@ const programSchema = z.object({
   difficulty: z.enum(['beginner', 'intermediate', 'advanced']),
   vibe_type: z.string().optional(),
   is_published: z.boolean().default(false),
+  is_master_template: z.boolean().default(false),
 });
 
 type ProgramFormValues = z.infer<typeof programSchema>;
@@ -54,11 +56,12 @@ export default function ProgramSettingsPage({ params }: { params: Promise<{ id: 
   const router = useRouter();
   const { id } = use(params);
   const { supabase, session } = useSupabase();
+  const { data: profile } = useProfile();
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
 
   const form = useForm<ProgramFormValues>({
-    resolver: zodResolver(programSchema),
+    resolver: zodResolver(programSchema) as any,
     defaultValues: {
       title: '',
       description: '',
@@ -67,6 +70,7 @@ export default function ProgramSettingsPage({ params }: { params: Promise<{ id: 
       difficulty: 'intermediate',
       vibe_type: 'Balanced',
       is_published: false,
+      is_master_template: false,
     },
   });
 
@@ -79,7 +83,7 @@ export default function ProgramSettingsPage({ params }: { params: Promise<{ id: 
   const fetchProgram = async () => {
       try {
           const { data, error } = await supabase!
-            .from('programs')
+            .from('wff_programs')
             .select('*')
             .eq('id', id)
             .single();
@@ -94,6 +98,7 @@ export default function ProgramSettingsPage({ params }: { params: Promise<{ id: 
               difficulty: data.difficulty || 'intermediate',
               vibe_type: data.vibe_type || 'Balanced',
               is_published: data.is_published || false,
+              is_master_template: data.is_master_template || false,
           });
       } catch (error: any) {
           toast.error('Failed to load program');
@@ -107,7 +112,7 @@ export default function ProgramSettingsPage({ params }: { params: Promise<{ id: 
     setIsSaving(true);
     try {
       const { error } = await supabase!
-        .from('programs')
+        .from('wff_programs')
         .update({
           title: data.title,
           description: data.description,
@@ -116,6 +121,7 @@ export default function ProgramSettingsPage({ params }: { params: Promise<{ id: 
           difficulty: data.difficulty,
           vibe_type: data.vibe_type,
           is_published: data.is_published,
+          is_master_template: data.is_master_template,
         })
         .eq('id', id);
 
@@ -133,7 +139,7 @@ export default function ProgramSettingsPage({ params }: { params: Promise<{ id: 
   const handleDelete = async () => {
       try {
           const { error } = await supabase!
-            .from('programs')
+            .from('wff_programs')
             .delete()
             .eq('id', id);
           
@@ -314,6 +320,32 @@ export default function ProgramSettingsPage({ params }: { params: Promise<{ id: 
                                     </FormItem>
                                 )}
                             />
+
+                            {profile?.role === 'mentor' && (
+                                <FormField
+                                    control={form.control}
+                                    name="is_master_template"
+                                    render={({ field }) => (
+                                        <FormItem className="flex flex-row items-center justify-between rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-4">
+                                            <div className="space-y-0.5">
+                                                <FormLabel className="text-base text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-2">
+                                                    Master Template (Franchise)
+                                                </FormLabel>
+                                                <FormDescription className="text-emerald-600/70 dark:text-emerald-400/70">
+                                                    Allow your enrolled Signal Coaches to clone and sell this program. You will receive a 10% royalty on their sales.
+                                                </FormDescription>
+                                            </div>
+                                            <FormControl>
+                                                <Checkbox
+                                                    checked={field.value}
+                                                    onCheckedChange={field.onChange}
+                                                    className="data-[state=checked]:bg-emerald-600 data-[state=checked]:border-emerald-600"
+                                                />
+                                            </FormControl>
+                                        </FormItem>
+                                    )}
+                                />
+                            )}
 
                             <div className="flex justify-end pt-4">
                                 <Button type="submit" size="lg" disabled={isSaving}>

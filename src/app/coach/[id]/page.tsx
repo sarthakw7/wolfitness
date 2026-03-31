@@ -31,7 +31,7 @@ export default async function CoachProfilePage({ params }: { params: Promise<{ i
 
   // 1. Fetch Coach & Profile Details
   const { data: coach, error: coachError } = await supabase
-    .from('coaches')
+    .from('wff_creators')
     .select(`
       *,
       profiles (
@@ -50,9 +50,9 @@ export default async function CoachProfilePage({ params }: { params: Promise<{ i
 
   // 2. Fetch Published Programs
   const { data: programs } = await supabase
-    .from('programs')
+    .from('wff_programs')
     .select('*')
-    .eq('coach_id', id)
+    .eq('creator_id', id)
     .eq('is_published', true)
     .order('created_at', { ascending: false });
 

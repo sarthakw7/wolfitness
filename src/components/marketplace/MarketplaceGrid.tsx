@@ -12,10 +12,12 @@ interface Coach {
   specialization: string[];
   years_experience: string;
   headline: string;
+  endorsed_by_mentor_id: string | null;
   profiles: {
     full_name: string;
     username: string;
     avatar_url: string | null;
+    role: string | null;
   };
 }
 
@@ -129,6 +131,8 @@ export function MarketplaceGrid({ initialCoaches }: MarketplaceGridProps) {
                             headline={coach.headline || 'Fitness Coach'}
                             specialization={coach.specialization || []}
                             yearsExperience={coach.years_experience || 'N/A'}
+                            role={coach.profiles?.role}
+                            endorsedByMentorId={coach.endorsed_by_mentor_id}
                         />
                     </div>
                 ))}

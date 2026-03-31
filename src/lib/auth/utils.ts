@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabaseServer';
 import { redirect } from 'next/navigation';
 
-export type UserRole = 'consumer' | 'coach' | 'admin';
+export type UserRole = 'consumer' | 'coach' | 'mentor' | 'admin';
 
 export async function getSession() {
   const supabase = await createClient();

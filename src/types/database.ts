@@ -9,13 +9,70 @@ export type Json =
 export interface Database {
   public: {
     Tables: {
-      coaches: {
+      wff_landing_sections: {
+        Row: {
+          id: string
+          type: string
+          title: string | null
+          subtitle: string | null
+          description: string | null
+          media_url: string | null
+          poster_url: string | null
+          cta_text: string | null
+          cta_href: string | null
+          order_index: number
+          is_active: boolean
+          hide_content: boolean
+          anchor_tag: string | null
+          created_at: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          id?: string
+          type: string
+          title?: string | null
+          subtitle?: string | null
+          description?: string | null
+          media_url?: string | null
+          poster_url?: string | null
+          cta_text?: string | null
+          cta_href?: string | null
+          order_index?: number
+          is_active?: boolean
+          hide_content?: boolean
+          anchor_tag?: string | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          id?: string
+          type?: string
+          title?: string | null
+          subtitle?: string | null
+          description?: string | null
+          media_url?: string | null
+          poster_url?: string | null
+          cta_text?: string | null
+          cta_href?: string | null
+          order_index?: number
+          is_active?: boolean
+          hide_content?: boolean
+          anchor_tag?: string | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      wff_creators: {
         Row: {
           certifications: string | null
           created_at: string | null
           headline: string | null
           id: string
           is_verified: boolean | null
+          stripe_account_id: string | null
+          stripe_onboarding_complete: boolean | null
+          endorsed_by_mentor_id: string | null
           social_instagram: string | null
           social_linkedin: string | null
           specialization: string[] | null
@@ -28,6 +85,9 @@ export interface Database {
           headline?: string | null
           id: string
           is_verified?: boolean | null
+          stripe_account_id?: string | null
+          stripe_onboarding_complete?: boolean | null
+          endorsed_by_mentor_id?: string | null
           social_instagram?: string | null
           social_linkedin?: string | null
           specialization?: string[] | null
@@ -40,6 +100,9 @@ export interface Database {
           headline?: string | null
           id?: string
           is_verified?: boolean | null
+          stripe_account_id?: string | null
+          stripe_onboarding_complete?: boolean | null
+          endorsed_by_mentor_id?: string | null
           social_instagram?: string | null
           social_linkedin?: string | null
           specialization?: string[] | null
@@ -128,7 +191,7 @@ export interface Database {
           }
         ]
       }
-      vibe_assessments: {
+      wff_vibe_assessments: {
         Row: {
           answers: Json
           calculated_vibe: string
@@ -159,10 +222,10 @@ export interface Database {
           }
         ]
       }
-      programs: {
+      wff_programs: {
         Row: {
           id: string
-          coach_id: string
+          creator_id: string
           title: string
           description: string | null
           price: number
@@ -171,12 +234,15 @@ export interface Database {
           vibe_type: string | null
           image_url: string | null
           is_published: boolean | null
+          is_master_template: boolean | null
+          parent_template_id: string | null
+          origin_mentor_id: string | null
           created_at: string | null
           updated_at: string | null
         }
         Insert: {
           id?: string
-          coach_id: string
+          creator_id: string
           title: string
           description?: string | null
           price?: number
@@ -185,12 +251,15 @@ export interface Database {
           vibe_type?: string | null
           image_url?: string | null
           is_published?: boolean | null
+          is_master_template?: boolean | null
+          parent_template_id?: string | null
+          origin_mentor_id?: string | null
           created_at?: string | null
           updated_at?: string | null
         }
         Update: {
           id?: string
-          coach_id?: string
+          creator_id?: string
           title?: string
           description?: string | null
           price?: number
@@ -199,6 +268,9 @@ export interface Database {
           vibe_type?: string | null
           image_url?: string | null
           is_published?: boolean | null
+          is_master_template?: boolean | null
+          parent_template_id?: string | null
+          origin_mentor_id?: string | null
           created_at?: string | null
           updated_at?: string | null
         }
@@ -211,7 +283,7 @@ export interface Database {
           }
         ]
       },
-      program_weeks: {
+      wff_program_weeks: {
         Row: {
           created_at: string | null
           id: string
@@ -242,7 +314,7 @@ export interface Database {
           }
         ]
       },
-      program_days: {
+      wff_program_days: {
         Row: {
           created_at: string | null
           day_number: number
@@ -273,7 +345,7 @@ export interface Database {
           }
         ]
       },
-      global_exercises: {
+      wff_global_exercises: {
         Row: {
           created_at: string | null
           id: string
@@ -297,7 +369,7 @@ export interface Database {
         }
         Relationships: []
       },
-      program_exercises: {
+      wff_program_exercises: {
         Row: {
           created_at: string | null
           day_id: string
@@ -346,7 +418,47 @@ export interface Database {
           }
         ]
       },
-      user_workout_logs: {
+      wff_enrollments: {
+        Row: {
+          id: string
+          user_id: string
+          program_id: string
+          status: string | null
+          enrolled_at: string | null
+          created_at: string | null
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          program_id: string
+          status?: string | null
+          enrolled_at?: string | null
+          created_at?: string | null
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          program_id?: string
+          status?: string | null
+          enrolled_at?: string | null
+          created_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wff_enrollments_user_id_fkey"
+            columns: ["user_id"]
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wff_enrollments_program_id_fkey"
+            columns: ["program_id"]
+            referencedRelation: "wff_programs"
+            referencedColumns: ["id"]
+          }
+        ]
+      },
+      wff_user_workout_logs: {
         Row: {
           completed_at: string | null
           day_id: string
@@ -418,7 +530,7 @@ export interface Database {
       [_ in never]: never
     }
     Enums: {
-      user_role: "consumer" | "coach" | "admin"
+      user_role: "consumer" | "coach" | "mentor" | "admin"
     }
     CompositeTypes: {
       [_ in never]: never

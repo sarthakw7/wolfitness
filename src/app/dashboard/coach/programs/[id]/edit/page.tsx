@@ -67,7 +67,7 @@ export default function ProgramEditorPage({ params }: { params: Promise<{ id: st
   const fetchGlobalExercises = useCallback(async () => {
       if (!supabase) return;
       const { data, error } = await supabase
-        .from('global_exercises')
+        .from('wff_global_exercises')
         .select('*')
         .order('name');
       
@@ -84,7 +84,7 @@ export default function ProgramEditorPage({ params }: { params: Promise<{ id: st
     try {
       // 1. Fetch Program Info
       const { data: program, error: progError } = await supabase
-        .from('programs')
+        .from('wff_programs')
         .select('title, duration_weeks')
         .eq('id', id)
         .single();
@@ -94,16 +94,16 @@ export default function ProgramEditorPage({ params }: { params: Promise<{ id: st
 
       // 2. Fetch Hierarchy (Weeks -> Days -> Exercises)
       const { data: existingWeeks, error: weeksError } = await supabase
-        .from('program_weeks')
+        .from('wff_program_weeks')
         .select(`
           id, 
           week_number, 
           title,
-          program_days (
+          wff_program_days (
             id,
             day_number,
             title,
-            program_exercises (
+            wff_program_exercises (
               id,
               exercise_name,
               sets,
@@ -123,16 +123,16 @@ export default function ProgramEditorPage({ params }: { params: Promise<{ id: st
 
       if (existingWeeks && existingWeeks.length > 0) {
         // Transform DB data to State
-        const formattedWeeks: Week[] = existingWeeks.map(w => ({
+        const formattedWeeks: Week[] = existingWeeks.map((w) => ({
           id: w.id,
           week_number: w.week_number,
           title: w.title || `Week ${w.week_number}`,
-          days: w.program_days?.sort((a, b) => a.day_number - b.day_number).map(d => ({
+          days: w.wff_program_days?.sort((a, b) => a.day_number - b.day_number).map((d) => ({
              id: d.id,
              day_number: d.day_number,
              title: d.title || `Day ${d.day_number}`,
-             exercises: (d.program_exercises || [])
-               .sort((a: { order_index: number }, b: { order_index: number }) => (a.order_index || 0) - (b.order_index || 0))
+             exercises: (d.wff_program_exercises || [])
+               .sort((a, b) => (a.order_index || 0) - (b.order_index || 0)) as Exercise[]
           })) || []
         }));
         setWeeks(formattedWeeks);
@@ -281,24 +281,24 @@ export default function ProgramEditorPage({ params }: { params: Promise<{ id: st
             
             // 1. Resolve Week ID (Find or Insert)
             // Try to find existing week by number for this program
-            const { data: existingWeek, error: wFetchError } = await supabase!
-                .from('program_weeks')
+            const { data: existingWeek } = await supabase!
+                .from('wff_program_weeks')
                 .select('id')
                 .eq('program_id', id)
                 .eq('week_number', week.week_number)
-                .single(); // Should be unique
+                .maybeSingle(); 
             
             if (existingWeek) {
                 weekId = existingWeek.id;
                 // Optional: Update title if changed
                 await supabase!
-                    .from('program_weeks')
+                    .from('wff_program_weeks')
                     .update({ title: week.title })
                     .eq('id', weekId);
             } else {
                 // Insert new
                  const { data: newWeek, error: wInsertError } = await supabase!
-                    .from('program_weeks')
+                    .from('wff_program_weeks')
                     .insert({ program_id: id, week_number: week.week_number, title: week.title })
                     .select('id')
                     .single();
@@ -310,22 +310,22 @@ export default function ProgramEditorPage({ params }: { params: Promise<{ id: st
                 let dayId = day.id;
 
                 // 2. Resolve Day ID (Find or Insert)
-                const { data: existingDay, error: dFetchError } = await supabase!
-                    .from('program_days')
+                const { data: existingDay } = await supabase!
+                    .from('wff_program_days')
                     .select('id')
                     .eq('week_id', weekId)
                     .eq('day_number', day.day_number)
-                    .single();
+                    .maybeSingle();
 
                 if (existingDay) {
                     dayId = existingDay.id;
                     await supabase!
-                        .from('program_days')
+                        .from('wff_program_days')
                         .update({ title: day.title })
                         .eq('id', dayId);
                 } else {
                      const { data: newDay, error: dInsertError } = await supabase!
-                        .from('program_days')
+                        .from('wff_program_days')
                         .insert({ week_id: weekId, day_number: day.day_number, title: day.title })
                         .select('id')
                         .single();
@@ -338,7 +338,7 @@ export default function ProgramEditorPage({ params }: { params: Promise<{ id: st
                     // Delete ALL existing exercises for this day to perform a clean sync
                     // This handles deletions, reordering, and updates robustly.
                     const { error: delError } = await supabase!
-                        .from('program_exercises')
+                        .from('wff_program_exercises')
                         .delete()
                         .eq('day_id', dayId);
                     
@@ -359,7 +359,7 @@ export default function ProgramEditorPage({ params }: { params: Promise<{ id: st
                     
                     if (exercisesToInsert.length > 0) {
                         const { error: exError } = await supabase!
-                            .from('program_exercises')
+                            .from('wff_program_exercises')
                             .insert(exercisesToInsert);
                         if (exError) throw exError;
                     }

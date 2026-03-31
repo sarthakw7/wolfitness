@@ -4,8 +4,9 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
-import { CheckCircle2, Star } from 'lucide-react';
+import { CheckCircle2, Star, Zap, ShieldCheck } from 'lucide-react';
 import Link from 'next/link';
+import { cn } from '@/lib/utils';
 
 interface CoachCardProps {
   id: string;
@@ -15,7 +16,9 @@ interface CoachCardProps {
   headline: string;
   specialization: string[];
   yearsExperience: string;
-  rating?: number; // Mock for now
+  rating?: number;
+  role?: string | null;
+  endorsedByMentorId?: string | null;
 }
 
 export function CoachCard({ 
@@ -26,14 +29,45 @@ export function CoachCard({
   headline, 
   specialization,
   yearsExperience,
-  rating = 5.0
+  rating,
+  role,
+  endorsedByMentorId
 }: CoachCardProps) {
+  const isMentor = role === 'mentor';
+  const isEndorsed = !!endorsedByMentorId;
+
   return (
-    <Card className="overflow-hidden hover:shadow-lg transition-all duration-200 border-muted flex flex-col h-full">
+    <Card className={cn(
+        "overflow-hidden hover:shadow-xl transition-all duration-500 flex flex-col h-full",
+        isMentor ? "border-emerald-500/30 shadow-[0_0_20px_rgba(16,185,129,0.1)] ring-1 ring-emerald-500/20" : 
+        isEndorsed ? "border-blue-500/20 shadow-[0_0_15px_rgba(59,130,246,0.05)] ring-1 ring-blue-500/10" : "border-muted"
+    )}>
       <CardHeader className="p-0">
-        <div className="h-24 bg-gradient-to-r from-primary/10 to-purple-500/10 relative">
+        <div className={cn(
+            "h-24 relative",
+            isMentor ? "bg-zinc-900" : 
+            isEndorsed ? "bg-gradient-to-r from-blue-900/20 to-indigo-900/20" : "bg-gradient-to-r from-primary/10 to-purple-500/10"
+        )}>
+            {isMentor ? (
+                <div className="absolute top-3 right-4">
+                    <Badge className="bg-emerald-500 text-black font-black text-[10px] tracking-widest uppercase border-none hover:bg-emerald-400 shadow-[0_0_10px_rgba(16,185,129,0.5)]">
+                        <Zap className="w-3 h-3 mr-1 fill-black" />
+                        Signal Elite
+                    </Badge>
+                </div>
+            ) : isEndorsed ? (
+                <div className="absolute top-3 right-4">
+                    <Badge className="bg-blue-600 text-white font-black text-[10px] tracking-widest uppercase border-none hover:bg-blue-500 shadow-[0_0_10px_rgba(37,99,235,0.3)]">
+                        <ShieldCheck className="h-3 w-3 mr-1" />
+                        Mentor Endorsed
+                    </Badge>
+                </div>
+            ) : null}
             <div className="absolute -bottom-10 left-6">
-                <Avatar className="h-20 w-20 border-4 border-background shadow-sm">
+                <Avatar className={cn(
+                    "h-20 w-20 border-4 shadow-sm",
+                    isMentor ? "border-zinc-900" : "border-background"
+                )}>
                     <AvatarImage src={avatarUrl} />
                     <AvatarFallback className="text-lg font-bold bg-primary/10 text-primary">
                         {fullName.charAt(0)}
@@ -44,14 +78,20 @@ export function CoachCard({
       </CardHeader>
       <CardContent className="pt-12 pb-4 px-6 flex-1">
         <div className="flex justify-between items-start mb-2">
-            <div>
-                <h3 className="font-bold text-lg leading-none">{fullName}</h3>
+            <div className="flex-1 overflow-hidden">
+                <h3 className="font-bold text-lg leading-none truncate">{fullName}</h3>
                 <p className="text-sm text-muted-foreground">@{username}</p>
             </div>
-            <Badge variant="secondary" className="flex items-center gap-1 bg-amber-50 text-amber-700 hover:bg-amber-100 border-amber-200">
-                <Star className="h-3 w-3 fill-amber-700" />
-                {rating.toFixed(1)}
-            </Badge>
+            {rating ? (
+                <Badge variant="secondary" className="flex items-center gap-1 bg-amber-50 text-amber-700 hover:bg-amber-100 border-amber-200">
+                    <Star className="h-3 w-3 fill-amber-700" />
+                    {rating.toFixed(1)}
+                </Badge>
+            ) : (
+                <Badge variant="secondary" className="bg-blue-50 text-blue-700 border-blue-100 text-[10px] uppercase font-bold tracking-tighter">
+                    Verified
+                </Badge>
+            )}
         </div>
         
         <p className="text-sm text-muted-foreground line-clamp-2 mb-4 min-h-[2.5rem]">

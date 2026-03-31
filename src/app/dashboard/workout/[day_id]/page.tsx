@@ -78,39 +78,32 @@ export default function WorkoutSessionPage({ params }: { params: Promise<{ day_i
     try {
       if (!session?.user) return;
 
-      // 1. Fetch Workout Structure
-      const { data: day, error } = await supabase!
-        .from('program_days')
-        .select(`
-            id,
-            title,
-            day_number,
-            week_id,
-            program_weeks (
-                title,
-                week_number,
-                program_id
-            ),
-            program_exercises (
-                id,
-                exercise_name,
-                sets,
-                reps,
-                rpe,
-                rest_seconds,
-                notes,
-                video_url,
-                order_index
-            )
-        `)
+      // 1. Fetch Workout Day Details
+      const { data: day, error: dayError } = await supabase!
+        .from('wff_program_days')
+        .select('*')
         .eq('id', day_id)
         .single();
 
-      if (error) throw error;
+      if (dayError || !day) throw dayError || new Error('Day not found');
 
-      // 2. Fetch Existing Logs for this day
+      // 2. Fetch Week Details separately
+      const { data: week } = await supabase!
+        .from('wff_program_weeks')
+        .select('title, week_number, program_id')
+        .eq('id', day.week_id)
+        .single();
+
+      // 3. Fetch Exercises separately
+      const { data: exercises } = await supabase!
+        .from('wff_program_exercises')
+        .select('*')
+        .eq('day_id', day_id)
+        .order('order_index');
+
+      // 4. Fetch Existing Logs for this day
       const { data: logs } = await supabase!
-        .from('user_workout_logs')
+        .from('wff_user_workout_logs')
         .select('exercise_id, set_number')
         .eq('user_id', session.user.id)
         .eq('day_id', day_id);
@@ -123,10 +116,8 @@ export default function WorkoutSessionPage({ params }: { params: Promise<{ day_i
           id: day.id,
           title: day.title || `Day ${day.day_number}`,
           day_number: day.day_number,
-          week_title: day.program_weeks?.title || `Week ${day.program_weeks?.week_number}`,
-          exercises: (day.program_exercises || [])
-            .sort((a: any, b: any) => (a.order_index || 0) - (b.order_index || 0))
-            .map((ex: any) => {
+          week_title: week?.title || `Week ${week?.week_number}`,
+          exercises: (exercises || []).map((ex: any) => {
                 // Calculate how many sets are completed based on logs
                 let completedCount = 0;
                 for (let i = 0; i < (ex.sets || 0); i++) {
@@ -172,16 +163,16 @@ export default function WorkoutSessionPage({ params }: { params: Promise<{ day_i
 
           try {
               const { data: dayData } = await supabase!
-                .from('program_days')
-                .select('week_id, program_weeks(program_id)')
+                .from('wff_program_days')
+                .select('week_id, wff_program_weeks(program_id)')
                 .eq('id', day_id)
                 .single();
                 
-              const programId = dayData?.program_weeks?.program_id;
+              const programId = (dayData as any)?.wff_program_weeks?.program_id;
 
               if (programId) {
                   await supabase!
-                    .from('user_workout_logs')
+                    .from('wff_user_workout_logs')
                     .insert({
                         user_id: session.user.id,
                         program_id: programId,
@@ -219,7 +210,7 @@ export default function WorkoutSessionPage({ params }: { params: Promise<{ day_i
 
           try {
               const { error } = await supabase!
-                .from('user_workout_logs')
+                .from('wff_user_workout_logs')
                 .delete()
                 .eq('user_id', session.user.id)
                 .eq('day_id', day_id)

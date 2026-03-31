@@ -6,6 +6,7 @@ import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useSupabase } from '@/components/SupabaseProvider';
+import { useProfile } from '@/hooks/useProfile';
 import { toast } from 'sonner';
 import { Loader2, ArrowLeft, UploadCloud } from 'lucide-react';
 import Link from 'next/link';
@@ -34,6 +35,7 @@ const programSchema = z.object({
   difficulty: z.enum(['beginner', 'intermediate', 'advanced']),
   vibe_type: z.string().optional(),
   is_published: z.boolean().default(false),
+  is_master_template: z.boolean().default(false),
 });
 
 type ProgramFormValues = z.infer<typeof programSchema>;
@@ -41,10 +43,11 @@ type ProgramFormValues = z.infer<typeof programSchema>;
 export default function NewProgramPage() {
   const router = useRouter();
   const { supabase, session } = useSupabase();
+  const { data: profile } = useProfile();
   const [isLoading, setIsLoading] = useState(false);
 
   const form = useForm<ProgramFormValues>({
-    resolver: zodResolver(programSchema),
+    resolver: zodResolver(programSchema) as any,
     defaultValues: {
       title: '',
       description: '',
@@ -53,6 +56,7 @@ export default function NewProgramPage() {
       difficulty: 'intermediate',
       vibe_type: 'Balanced',
       is_published: false,
+      is_master_template: false,
     },
   });
 
@@ -65,13 +69,13 @@ export default function NewProgramPage() {
     setIsLoading(true);
 
     try {
-      // 1. Get the coach_id (which is the same as user_id in our one-to-one schema)
+      // 1. Get the creator_id (which is the same as user_id in our one-to-one schema)
       // We should verify they are actually a coach, but RLS will also block if not.
       
       const { error } = await supabase!
-        .from('programs')
+        .from('wff_programs')
         .insert({
-          coach_id: session.user.id,
+          creator_id: session.user.id,
           title: data.title,
           description: data.description,
           price: data.price,
@@ -79,6 +83,7 @@ export default function NewProgramPage() {
           difficulty: data.difficulty,
           vibe_type: data.vibe_type,
           is_published: data.is_published,
+          is_master_template: data.is_master_template,
           // image_url: TODO: Add file upload
         });
 
@@ -106,7 +111,7 @@ export default function NewProgramPage() {
                 Back to Dashboard
             </Link>
             <h1 className="text-3xl font-bold tracking-tight">Create New Program</h1>
-            <p className="text-muted-foreground mt-1">Design a new training protocol for your athletes.</p>
+            <p className="text-muted-foreground mt-1">Design a new training system for your athletes.</p>
         </div>
 
         <Card className="border-none shadow-md">
@@ -255,6 +260,32 @@ export default function NewProgramPage() {
                                 </FormItem>
                             )}
                         />
+
+                        {profile?.role === 'mentor' && (
+                            <FormField
+                                control={form.control}
+                                name="is_master_template"
+                                render={({ field }) => (
+                                    <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border border-emerald-500/20 bg-emerald-500/5 p-4">
+                                        <FormControl>
+                                            <Checkbox
+                                                checked={field.value}
+                                                onCheckedChange={field.onChange}
+                                                className="data-[state=checked]:bg-emerald-600 data-[state=checked]:border-emerald-600 mt-1"
+                                            />
+                                        </FormControl>
+                                        <div className="space-y-1 leading-none">
+                                            <FormLabel className="text-emerald-600 dark:text-emerald-400 font-bold">
+                                                Master Template (Franchise)
+                                            </FormLabel>
+                                            <FormDescription className="text-emerald-600/70 dark:text-emerald-400/70">
+                                                Allow your enrolled Signal Coaches to clone and sell this program. You will receive a 10% royalty on their sales.
+                                            </FormDescription>
+                                        </div>
+                                    </FormItem>
+                                )}
+                            />
+                        )}
 
                         <div className="flex justify-end pt-4">
                             <Button type="submit" size="lg" disabled={isLoading}>

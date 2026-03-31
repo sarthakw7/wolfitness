@@ -1,26 +1,34 @@
 import type { Metadata } from "next";
 import { ReactNode } from "react";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Montserrat, Roboto, Roboto_Mono } from "next/font/google";
 import { cookies } from 'next/headers';
 import { createClient } from '@/lib/supabaseServer'; // Correctly import the server-side client
 import { SupabaseProvider } from '@/components/SupabaseProvider'; // Import the new client provider
 import QueryProvider from '@/components/QueryProvider';
 import { Toaster } from "@/components/ui/sonner";
+import { ThemeProvider } from "@/components/ThemeProvider";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const roboto = Roboto({
+  variable: "--font-roboto",
+  weight: ["400", "500", "700", "900"],
   subsets: ["latin"],
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const robotoMono = Roboto_Mono({
+  variable: "--font-roboto-mono",
+  subsets: ["latin"],
+});
+
+const montserrat = Montserrat({
+  variable: "--font-montserrat",
+  weight: ["400", "500", "600", "700", "800", "900"],
   subsets: ["latin"],
 });
 
 export const metadata: Metadata = {
-  title: "WFF Ecosystem",
-  description: "The most advanced global fitness ecosystem.",
+  title: "WOLFITNESS",
+  description: "The most advanced performance ecosystem for elite athletes.",
   icons: {
     icon: '/favicon.svg',
   },
@@ -33,14 +41,21 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
   } = await supabase.auth.getSession();
 
   return (
-    <html lang="en" suppressHydrationWarning>
-      <body>
-        <QueryProvider>
-          <SupabaseProvider initialSession={session}>
-            {children}
-          </SupabaseProvider>
-        </QueryProvider>
-        <Toaster />
+    <html lang="en" suppressHydrationWarning className={`${roboto.variable} ${robotoMono.variable} ${montserrat.variable}`}>
+      <body className="antialiased font-sans">
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="system"
+          enableSystem
+          disableTransitionOnChange
+        >
+          <QueryProvider>
+            <SupabaseProvider initialSession={session}>
+              {children}
+            </SupabaseProvider>
+          </QueryProvider>
+          <Toaster />
+        </ThemeProvider>
       </body>
     </html>
   );

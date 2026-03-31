@@ -22,6 +22,8 @@ import { Badge } from '@/components/ui/badge';
 import Navbar from '@/components/Navbar';
 import { VolumeChart } from '@/components/dashboard/VolumeChart';
 import { WorkoutHeatmap } from '@/components/dashboard/WorkoutHeatmap';
+import { DailySignal } from '@/components/dashboard/DailySignal';
+import { SignalIntel } from '@/components/dashboard/SignalIntel';
 
 export const revalidate = 0;
 
@@ -41,40 +43,74 @@ export default async function DashboardPage() {
     .eq('id', session.user.id)
     .single();
 
-  if (profile?.role === 'coach') {
+  if (profile?.role === 'coach' || profile?.role === 'mentor') {
     redirect('/dashboard/coach');
   }
 
-  // Fetch enrollments
+  // Fetch enrollments with nested exercise structure to calculate progress
   const { data: enrollments } = await supabase
-    .from('enrollments')
+    .from('wff_enrollments')
     .select(`
       *,
-      programs (
+      programs:program_id (
         id,
         title,
         difficulty,
-        duration_weeks
+        duration_weeks,
+        wff_program_weeks (
+          id,
+          wff_program_days (
+            id,
+            wff_program_exercises (
+              id,
+              sets
+            )
+          )
+        )
       )
     `)
     .eq('user_id', session.user.id);
 
   // --- ANALYTICS DATA FETCHING ---
-  // Fetch logs for the last 90 days
+  // Fetch ALL logs for this user to calculate accurate progress
+  const { data: allLogs } = await supabase
+    .from('wff_user_workout_logs')
+    .select('completed_at, weight_kg, reps_completed, program_id, exercise_id, set_number')
+    .eq('user_id', session.user.id);
+
+  const logs = allLogs || [];
+
+  // Process Logs for Charts (Last 90 days only)
   const ninetyDaysAgo = new Date();
   ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
-
-  const { data: logs } = await supabase
-    .from('user_workout_logs')
-    .select('completed_at, weight_kg, reps_completed')
-    .eq('user_id', session.user.id)
-    .gte('completed_at', ninetyDaysAgo.toISOString());
-
-  // Process Logs
-  const processedLogs = (logs || []).map(log => ({
-      date: new Date(log.completed_at).toISOString().split('T')[0],
+  
+  const processedLogs = logs
+    .filter(log => new Date(log.completed_at || 0) >= ninetyDaysAgo)
+    .map(log => ({
+      date: new Date(log.completed_at || new Date()).toISOString().split('T')[0],
       volume: (log.weight_kg || 0) * (log.reps_completed || 0)
-  }));
+    }));
+
+  // Helper to calculate progress for a specific program
+  const calculateProgramProgress = (programData: any) => {
+    if (!programData || !programData.wff_program_weeks) return 0;
+    
+    let totalSets = 0;
+    let completedSets = 0;
+
+    programData.wff_program_weeks.forEach((week: any) => {
+      week.wff_program_days?.forEach((day: any) => {
+        day.wff_program_exercises?.forEach((ex: any) => {
+          totalSets += (ex.sets || 0);
+          // Check logs for this specific exercise
+          const exerciseLogs = logs.filter(l => l.program_id === programData.id && l.exercise_id === ex.id);
+          completedSets += exerciseLogs.length;
+        });
+      });
+    });
+
+    return totalSets === 0 ? 0 : Math.min(100, Math.round((completedSets / totalSets) * 100));
+  };
 
   // 1. Heatmap Data (Daily Volume)
   const dailyVolume = processedLogs.reduce((acc, log) => {
@@ -151,10 +187,16 @@ export default async function DashboardPage() {
       const ageDate = new Date(ageDifMs);
       return Math.abs(ageDate.getUTCFullYear() - 1970);
   };
-  const age = calculateAge(profile?.date_of_birth);
+  const age = calculateAge(profile?.date_of_birth || '');
   const bmi = (profile?.weight_kg && profile?.height_cm) 
     ? (profile.weight_kg / Math.pow(profile.height_cm / 100, 2)).toFixed(1) 
     : '--';
+
+  // Calculate aggregate progress across all programs
+  const totalPrograms = enrollments?.length || 0;
+  const averageProgress = totalPrograms > 0 
+    ? Math.round(enrollments!.reduce((acc, curr) => acc + calculateProgramProgress(curr.programs), 0) / totalPrograms) 
+    : 0;
 
   const stats = [
     {
@@ -165,10 +207,10 @@ export default async function DashboardPage() {
       color: "text-orange-500",
     },
     {
-      title: "Total Workouts",
-      value: totalWorkouts.toString(),
-      change: "Last 90 Days",
-      icon: Dumbbell,
+      title: "Average Progress",
+      value: `${averageProgress}%`,
+      change: "Across all programs",
+      icon: Target,
       color: "text-blue-500",
     },
     {
@@ -234,6 +276,66 @@ export default async function DashboardPage() {
                 {/* Main Column */}
                 <div className="lg:col-span-2 space-y-8">
                     
+                    {/* My Programs List (MOVED TO TOP) */}
+                    <div className="space-y-4">
+                        <div className="flex items-center justify-between">
+                            <h2 className="text-xl font-bold">My Programs</h2>
+                            <Link href="/marketplace">
+                                <Button variant="ghost" size="sm" className="text-xs uppercase tracking-widest font-black">Browse More</Button>
+                            </Link>
+                        </div>
+
+                        {enrollments && enrollments.length > 0 ? (
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                {enrollments.map((enrollment: any) => {
+                                    const prog = enrollment.programs;
+                                    const progress = calculateProgramProgress(prog);
+                                    return (
+                                        <Card key={enrollment.id} className="border-none shadow-md overflow-hidden relative group bg-zinc-950 text-white">
+                                            <CardHeader className="pb-3">
+                                                <div className="flex justify-between items-start">
+                                                    <div>
+                                                        <CardTitle className="text-lg font-black uppercase tracking-tighter italic">{prog.title}</CardTitle>
+                                                        <CardDescription className="capitalize text-zinc-400 text-[10px] font-bold tracking-widest">
+                                                            {prog.difficulty} • {prog.duration_weeks} Weeks
+                                                        </CardDescription>
+                                                    </div>
+                                                    <Badge className="bg-white text-black text-[9px] font-black uppercase border-none">
+                                                        {progress}%
+                                                    </Badge>
+                                                </div>
+                                            </CardHeader>
+                                            <CardContent>
+                                                <div className="flex items-center justify-between mt-2">
+                                                    <div className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">
+                                                        Next: <span className="text-zinc-300">Session 01</span>
+                                                    </div>
+                                                    <Link href={`/program/${prog.id}`}>
+                                                        <Button size="sm" className="h-8 px-4 bg-white text-black hover:bg-zinc-200 text-[10px] font-black uppercase tracking-widest">
+                                                            Train
+                                                        </Button>
+                                                    </Link>
+                                                </div>
+                                                <Progress value={progress} className="h-1 mt-4 bg-zinc-800" />
+                                            </CardContent>
+                                        </Card>
+                                    );
+                                })}
+                            </div>
+                        ) : (
+                            <Card className="border-dashed shadow-sm">
+                                <CardContent className="py-12 text-center">
+                                    <p className="text-muted-foreground mb-6 uppercase tracking-widest text-[10px] font-bold">You aren't enrolled in any protocols yet.</p>
+                                    <Link href="/marketplace">
+                                        <Button className="bg-black text-white px-8">Find a Program</Button>
+                                    </Link>
+                                </CardContent>
+                            </Card>
+                        )}
+                    </div>
+
+                    <DailySignal />
+
                     {/* Analytics Section */}
                     <div className="grid gap-4">
                         <Card className="border-none shadow-sm">
@@ -256,61 +358,6 @@ export default async function DashboardPage() {
                             </CardContent>
                         </Card>
                     </div>
-
-                    {/* My Programs List */}
-                    <div className="space-y-4">
-                        <div className="flex items-center justify-between">
-                            <h2 className="text-xl font-bold">My Programs</h2>
-                            <Link href="/marketplace">
-                                <Button variant="ghost" size="sm">Browse More</Button>
-                            </Link>
-                        </div>
-
-                        {enrollments && enrollments.length > 0 ? (
-                            enrollments.map((enrollment) => {
-                                const prog = enrollment.programs;
-                                return (
-                                    <Card key={enrollment.id} className="border-none shadow-md overflow-hidden relative group">
-                                        <CardHeader className="pb-3">
-                                            <div className="flex justify-between items-start">
-                                                <div>
-                                                    <CardTitle className="text-lg">{prog.title}</CardTitle>
-                                                    <CardDescription className="capitalize">
-                                                        {prog.difficulty} • {prog.duration_weeks} Weeks
-                                                    </CardDescription>
-                                                </div>
-                                                <Badge variant={enrollment.status === 'active' ? 'default' : 'secondary'}>
-                                                    {enrollment.status || 'Active'}
-                                                </Badge>
-                                            </div>
-                                        </CardHeader>
-                                        <CardContent>
-                                            <div className="flex items-center justify-between mt-2">
-                                                <div className="text-sm text-muted-foreground">
-                                                    <span className="font-medium text-foreground">0%</span> Complete
-                                                </div>
-                                                <Link href={`/program/${prog.id}`}>
-                                                    <Button size="sm" className="gap-2">
-                                                        <Dumbbell className="h-4 w-4" /> Open Program
-                                                    </Button>
-                                                </Link>
-                                            </div>
-                                            <Progress value={0} className="h-1.5 mt-4" />
-                                        </CardContent>
-                                    </Card>
-                                );
-                            })
-                        ) : (
-                            <Card className="border-dashed shadow-sm">
-                                <CardContent className="py-8 text-center">
-                                    <p className="text-muted-foreground mb-4">You aren't enrolled in any programs yet.</p>
-                                    <Link href="/marketplace">
-                                        <Button>Find a Program</Button>
-                                    </Link>
-                                </CardContent>
-                            </Card>
-                        )}
-                    </div>
                 </div>
 
                 {/* Sidebar Column */}
@@ -322,7 +369,7 @@ export default async function DashboardPage() {
                         </CardHeader>
                         <CardContent className="flex items-center gap-4">
                             <Avatar className="h-16 w-16 border-2 border-primary">
-                                <AvatarImage src={profile?.avatar_url} />
+                                <AvatarImage src={profile?.avatar_url || undefined} />
                                 <AvatarFallback className="bg-primary/10 text-primary text-xl">
                                     {profile?.full_name?.charAt(0) || profile?.username?.charAt(0) || <User />}
                                 </AvatarFallback>
@@ -331,15 +378,15 @@ export default async function DashboardPage() {
                                 <p className="font-bold text-lg">{profile?.full_name || 'Athlete'}</p>
                                 <p className="text-sm text-muted-foreground">@{profile?.username || 'username'}</p>
                                 <div className="mt-2 flex items-center gap-2">
-                                    {profile?.role === 'coach' && (
-                                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300">
-                                            Coach
-                                        </span>
-                                    )}
+                                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300 capitalize">
+                                        {profile?.role || 'consumer'}
+                                    </span>
                                 </div>
                             </div>
                         </CardContent>
                     </Card>
+
+                    <SignalIntel />
 
                     {/* Bio-Metrics Card */}
                     <Card className="border-none shadow-sm">

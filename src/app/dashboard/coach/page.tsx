@@ -7,25 +7,22 @@ import {
   TrendingUp, 
   AlertCircle,
   Calendar,
-  MoreHorizontal,
   User,
   Activity,
-  Edit,
-  Settings,
-  Eye
+  Plus,
+  Wallet,
+  Library
 } from 'lucide-react';
 
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import Navbar from '@/components/Navbar';
+import { DailySignal } from '@/components/dashboard/DailySignal';
 import { RevenueChart } from '@/components/dashboard/RevenueChart';
+import { ProgramActions } from './ProgramActions';
+
+export const revalidate = 0;
 
 export default async function CoachDashboardPage() {
   const supabase = await createClient();
@@ -42,8 +39,41 @@ export default async function CoachDashboardPage() {
     .eq('id', session.user.id)
     .single();
 
-  if (profile?.role !== 'coach') {
+  if (profile?.role !== 'coach' && profile?.role !== 'mentor') {
       redirect('/dashboard'); // Redirect consumers back to their dashboard
+  }
+
+  // Enforce Verification Gate for Coaches
+  if (profile?.role === 'coach') {
+      const { data: creatorData } = await supabase
+        .from('wff_creators')
+        .select('is_verified')
+        .eq('id', session.user.id)
+        .single();
+        
+      if (!creatorData?.is_verified) {
+          // If they aren't verified, send them to the pending status page
+          redirect('/onboarding/coach/pending'); 
+      }
+  }
+
+  // Auto-create wff_creators storefront for Mentors
+  if (profile?.role === 'mentor') {
+    const { data: mentorStorefront } = await supabase
+      .from('wff_creators')
+      .select('id')
+      .eq('id', session.user.id)
+      .single();
+
+    if (!mentorStorefront) {
+      await supabase
+        .from('wff_creators')
+        .insert({
+          id: session.user.id,
+          is_verified: true,
+          headline: 'Elite Signal Mentor',
+        });
+    }
   }
 
   const calculateAge = (dob: string) => {
@@ -58,7 +88,7 @@ export default async function CoachDashboardPage() {
     ? (profile.weight_kg / Math.pow(profile.height_cm / 100, 2)).toFixed(1) 
     : '--';
   
-  const age = calculateAge(profile?.date_of_birth);
+  const age = calculateAge(profile?.date_of_birth || '');
 
   // Coach Mock Data
   const stats = [
@@ -100,9 +130,9 @@ export default async function CoachDashboardPage() {
 
   // Fetch real programs
   const { data: myPrograms } = await supabase
-    .from('programs')
+    .from('wff_programs')
     .select('*')
-    .eq('coach_id', session.user.id)
+    .eq('creator_id', session.user.id)
     .order('created_at', { ascending: false });
 
   return (
@@ -121,15 +151,29 @@ export default async function CoachDashboardPage() {
                     </p>
                 </div>
                 <div className="flex items-center gap-2">
-                    <Button variant="outline" className="gap-2">
-                        <Calendar className="h-4 w-4" />
-                        Schedule
-                    </Button>
-                    <Button className="gap-2 shadow-lg shadow-primary/20">
-                        <Users className="h-4 w-4" />
-                        Add Client
-                    </Button>
+                    <Link href="/dashboard/coach/wallet">
+                        <Button variant="outline" className="gap-2 border-indigo-200 hover:bg-indigo-50 dark:hover:bg-indigo-950 text-indigo-700 dark:text-indigo-400">
+                            <Wallet className="h-4 w-4" />
+                            <span className="hidden sm:inline">Wallet</span>
+                        </Button>
+                    </Link>
+                    <Link href="/dashboard/coach/templates">
+                        <Button variant="outline" className="gap-2 border-emerald-200 hover:bg-emerald-50 dark:hover:bg-emerald-950 text-emerald-700 dark:text-emerald-400">
+                            <Library className="h-4 w-4" />
+                            <span className="hidden sm:inline">Franchise Hub</span>
+                        </Button>
+                    </Link>
+                    <Link href="/dashboard/coach/programs/new">
+                        <Button className="gap-2 shadow-lg shadow-primary/20">
+                            <Plus className="h-4 w-4" />
+                            <span className="hidden sm:inline">New Program</span>
+                        </Button>
+                    </Link>
                 </div>
+            </div>
+
+            <div className="mb-8">
+                <DailySignal />
             </div>
 
             {/* Stats Grid */}
@@ -190,30 +234,7 @@ export default async function CoachDashboardPage() {
                                             <div className="text-right flex flex-col items-end gap-1">
                                                 <p className="font-bold text-sm">{program.price === 0 ? 'Free' : `$${program.price}`}</p>
                                                 
-                                                <DropdownMenu>
-                                                    <DropdownMenuTrigger asChild>
-                                                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                                                            <MoreHorizontal className="h-4 w-4" />
-                                                        </Button>
-                                                    </DropdownMenuTrigger>
-                                                    <DropdownMenuContent align="end">
-                                                        <DropdownMenuItem asChild>
-                                                            <Link href={`/dashboard/coach/programs/${program.id}/edit`} className="cursor-pointer">
-                                                                <Activity className="mr-2 h-4 w-4" /> Build Workouts
-                                                            </Link>
-                                                        </DropdownMenuItem>
-                                                        <DropdownMenuItem asChild>
-                                                            <Link href={`/dashboard/coach/programs/${program.id}/settings`} className="cursor-pointer">
-                                                                <Settings className="mr-2 h-4 w-4" /> Edit Details
-                                                            </Link>
-                                                        </DropdownMenuItem>
-                                                        <DropdownMenuItem asChild>
-                                                            <Link href={`/program/${program.id}`} className="cursor-pointer">
-                                                                <Eye className="mr-2 h-4 w-4" /> View Public Page
-                                                            </Link>
-                                                        </DropdownMenuItem>
-                                                    </DropdownMenuContent>
-                                                </DropdownMenu>
+                                                <ProgramActions programId={program.id} programTitle={program.title} />
                                             </div>
                                         </div>
                                     ))}
@@ -280,7 +301,7 @@ export default async function CoachDashboardPage() {
                         </CardHeader>
                         <CardContent className="flex items-center gap-4">
                             <Avatar className="h-16 w-16 border-2 border-primary">
-                                <AvatarImage src={profile?.avatar_url} />
+                                <AvatarImage src={profile?.avatar_url || undefined} />
                                 <AvatarFallback className="bg-primary/10 text-primary text-xl">
                                     {profile?.full_name?.charAt(0) || profile?.username?.charAt(0) || <User />}
                                 </AvatarFallback>

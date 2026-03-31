@@ -80,7 +80,7 @@ export default function CoachOnboardingPage() {
 
         // 2. Update Professional Data in 'coaches'
         supabase!
-          .from('coaches')
+          .from('wff_creators')
           .upsert({
             id: session.user.id,
             specialization: data.specialization,
@@ -227,10 +227,10 @@ export default function CoachOnboardingPage() {
                                 {specializations.map((item) => (
                                     <div
                                         key={item.value}
-                                        onClick={() => toggleSpecialization(item.value, field.value, field.onChange)}
+                                        onClick={() => toggleSpecialization(item.value, field.value || [], field.onChange)}
                                         className={`
                                             flex flex-col items-center justify-center p-4 rounded-lg border-2 cursor-pointer transition-all
-                                            ${field.value.includes(item.value)
+                                            ${(field.value || []).includes(item.value)
                                                 ? "border-blue-600 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 font-bold shadow-sm" 
                                                 : "border-muted bg-card hover:border-blue-600/30 hover:bg-accent"
                                             }
