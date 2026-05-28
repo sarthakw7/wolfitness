@@ -22,7 +22,7 @@ import {
 export type GlobalExercise = {
   id: string;
   name: string;
-  muscle_group: string | null;
+  primary_muscle: string | null;
   video_url: string | null;
 };
 
@@ -99,8 +99,8 @@ export function ExercisePicker({ value, onSelect, onChangeName, exercises }: Exe
                   />
                   <div className="flex flex-col">
                       <span>{exercise.name}</span>
-                      {exercise.muscle_group && (
-                          <span className="text-xs text-muted-foreground">{exercise.muscle_group}</span>
+                      {exercise.primary_muscle && (
+                          <span className="text-xs text-muted-foreground">{exercise.primary_muscle}</span>
                       )}
                   </div>
                 </CommandItem>

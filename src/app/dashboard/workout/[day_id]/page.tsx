@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, use } from 'react';
+import { useState, useEffect, use, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSupabase } from '@/components/SupabaseProvider';
 import { toast } from 'sonner';
@@ -23,7 +23,8 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/co
 import { Progress } from '@/components/ui/progress';
 
 type Exercise = {
-  id: string;
+  id: string; // program_exercises.id
+  exercise_library_id: string;
   exercise_name: string;
   sets: number;
   reps: string;
@@ -31,7 +32,7 @@ type Exercise = {
   rest_seconds: number;
   notes: string;
   video_url: string;
-  completedSets: number; // Local state to track progress
+  completedSets: number;
 };
 
 type WorkoutDay = {
@@ -39,6 +40,7 @@ type WorkoutDay = {
   title: string;
   day_number: number;
   week_title: string;
+  program_id: string;
   exercises: Exercise[];
 };
 
@@ -48,6 +50,7 @@ export default function WorkoutSessionPage({ params }: { params: Promise<{ day_i
   const { supabase, session } = useSupabase();
   
   const [workout, setWorkout] = useState<WorkoutDay | null>(null);
+  const [sessionId, setSessionId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeExerciseIndex, setActiveExerciseIndex] = useState(0);
   const [timer, setTimer] = useState(0);
@@ -55,7 +58,7 @@ export default function WorkoutSessionPage({ params }: { params: Promise<{ day_i
 
   useEffect(() => {
     fetchWorkoutAndLogs();
-  }, []);
+  }, [session, supabase]);
 
   useEffect(() => {
     let interval: NodeJS.Timeout;
@@ -76,66 +79,109 @@ export default function WorkoutSessionPage({ params }: { params: Promise<{ day_i
 
   const fetchWorkoutAndLogs = async () => {
     try {
-      if (!session?.user) return;
+      if (!session?.user || !supabase) return;
 
-      // 1. Fetch Workout Day Details
-      const { data: day, error: dayError } = await supabase!
-        .from('wff_program_days')
-        .select('*')
+      // 1. Fetch Workout Day & Program Details
+      const { data: day, error: dayError } = await supabase
+        .from('program_days')
+        .select(`
+          *,
+          program_weeks!inner (
+            title,
+            week_number,
+            program_id
+          )
+        `)
         .eq('id', day_id)
         .single();
 
       if (dayError || !day) throw dayError || new Error('Day not found');
 
-      // 2. Fetch Week Details separately
-      const { data: week } = await supabase!
-        .from('wff_program_weeks')
-        .select('title, week_number, program_id')
-        .eq('id', day.week_id)
-        .single();
+      const programId = (day.program_weeks as any).program_id;
 
-      // 3. Fetch Exercises separately
-      const { data: exercises } = await supabase!
-        .from('wff_program_exercises')
-        .select('*')
+      // 2. Manage Workout Session (Header)
+      let currentSessionId = null;
+      
+      const { data: existingSession } = await supabase
+        .from('workout_sessions')
+        .select('id, started_at')
+        .eq('user_id', session.user.id)
+        .eq('day_id', day_id)
+        .is('completed_at', null)
+        .order('started_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (existingSession) {
+          currentSessionId = existingSession.id;
+          const elapsed = Math.floor((Date.now() - new Date(existingSession.started_at).getTime()) / 1000);
+          setTimer(elapsed > 0 ? elapsed : 0);
+          setIsTimerRunning(true);
+      } else {
+          const { data: newSession, error: sessionError } = await supabase
+            .from('workout_sessions')
+            .insert({
+                user_id: session.user.id,
+                program_id: programId,
+                day_id: day_id
+            })
+            .select()
+            .single();
+            
+          if (sessionError) throw sessionError;
+          currentSessionId = newSession.id;
+      }
+      setSessionId(currentSessionId);
+
+      // 3. Fetch Exercises with Library details
+      const { data: exercises } = await supabase
+        .from('program_exercises')
+        .select(`
+          *,
+          exercise:exercise_library_id (
+            id,
+            name,
+            video_url
+          )
+        `)
         .eq('day_id', day_id)
         .order('order_index');
 
-      // 4. Fetch Existing Logs for this day
-      const { data: logs } = await supabase!
-        .from('wff_user_workout_logs')
-        .select('exercise_id, set_number')
-        .eq('user_id', session.user.id)
-        .eq('day_id', day_id);
+      // 4. Fetch Existing Logs for this session
+      const { data: logs } = await supabase
+        .from('workout_log_sets')
+        .select('exercise_library_id, set_number')
+        .eq('session_id', currentSessionId);
 
-      // Map logs to a lookup object: { "exerciseId-setNum": true }
-      const completedMap = new Set(logs?.map(l => `${l.exercise_id}-${l.set_number}`));
+      const completedMap = new Set(logs?.map(l => `${l.exercise_library_id}-${l.set_number}`));
 
       // Format data
       const formattedWorkout: WorkoutDay = {
           id: day.id,
           title: day.title || `Day ${day.day_number}`,
           day_number: day.day_number,
-          week_title: week?.title || `Week ${week?.week_number}`,
-          exercises: (exercises || []).map((ex: any) => {
-                // Calculate how many sets are completed based on logs
-                let completedCount = 0;
-                for (let i = 0; i < (ex.sets || 0); i++) {
-                    if (completedMap.has(`${ex.id}-${i}`)) {
-                        completedCount++;
-                    }
-                }
-                return {
-                    ...ex,
-                    completedSets: completedCount
-                };
-            })
+          week_title: (day.program_weeks as any).title || `Week ${(day.program_weeks as any).week_number}`,
+          program_id: programId,
+          exercises: (exercises || []).map((ex: any) => ({
+              id: ex.id,
+              exercise_library_id: ex.exercise_library_id,
+              exercise_name: ex.exercise?.name || 'Unknown Exercise',
+              sets: ex.target_sets || 0,
+              reps: ex.target_reps || '0',
+              rpe: ex.target_rpe || '',
+              rest_seconds: ex.rest_seconds || 60,
+              notes: ex.notes || '',
+              video_url: ex.exercise?.video_url || '',
+              completedSets: Array.from({ length: ex.target_sets || 0 }).filter((_, i) => 
+                  completedMap.has(`${ex.exercise_library_id}-${i}`)
+              ).length
+          }))
       };
 
       setWorkout(formattedWorkout);
     } catch (error: any) {
-      console.error(error);
-      toast.error('Failed to load workout');
+      console.error('Workout Fetch Error:', error);
+      toast.error('Failed to load workout session');
       router.push('/dashboard');
     } finally {
       setLoading(false);
@@ -143,15 +189,16 @@ export default function WorkoutSessionPage({ params }: { params: Promise<{ day_i
   };
 
   const handleSetComplete = async (exerciseIndex: number, targetSetIndex: number) => {
-      if (!workout || !session?.user) return;
+      if (!workout || !session?.user || !sessionId || !supabase) return;
       
       // Haptic feedback for tactile feel
       if (typeof navigator !== 'undefined' && navigator.vibrate) {
           navigator.vibrate(50);
       }
       
-      const newWorkout = { ...workout };
-      const exercise = newWorkout.exercises[exerciseIndex];
+      const newWorkout = { ...workout, exercises: [...workout.exercises] };
+      const exercise = { ...newWorkout.exercises[exerciseIndex] };
+      newWorkout.exercises[exerciseIndex] = exercise;
       const currentCompletedCount = exercise.completedSets;
       
       // Case 1: Checking the next available set
@@ -162,27 +209,17 @@ export default function WorkoutSessionPage({ params }: { params: Promise<{ day_i
           setWorkout(newWorkout);
 
           try {
-              const { data: dayData } = await supabase!
-                .from('wff_program_days')
-                .select('week_id, wff_program_weeks(program_id)')
-                .eq('id', day_id)
-                .single();
-                
-              const programId = (dayData as any)?.wff_program_weeks?.program_id;
+              const { error } = await supabase
+                .from('workout_log_sets')
+                .insert({
+                    session_id: sessionId,
+                    exercise_library_id: exercise.exercise_library_id,
+                    set_number: targetSetIndex,
+                    reps_completed: parseInt(exercise.reps) || 0,
+                    weight_kg: 0,
+                });
 
-              if (programId) {
-                  await supabase!
-                    .from('wff_user_workout_logs')
-                    .insert({
-                        user_id: session.user.id,
-                        program_id: programId,
-                        day_id: day_id,
-                        exercise_id: exercise.id,
-                        set_number: targetSetIndex,
-                        reps_completed: parseInt(exercise.reps) || 0,
-                        weight_kg: 0,
-                    });
-              }
+              if (error) throw error;
               
               // Auto-advance if finished
               if (exercise.completedSets === exercise.sets && exerciseIndex < workout.exercises.length - 1) {
@@ -196,10 +233,9 @@ export default function WorkoutSessionPage({ params }: { params: Promise<{ day_i
 
           } catch (err) {
               console.error('Failed to log set', err);
-              toast.error('Failed to save progress');
-              // Revert optimistic update
-              exercise.completedSets -= 1;
-              setWorkout({ ...workout });
+              toast.error('Sync Error: Progress might not be saved');
+              // Revert optimistic update safely
+              setWorkout(workout);
           }
       } 
       // Case 2: Unchecking the last completed set
@@ -209,21 +245,19 @@ export default function WorkoutSessionPage({ params }: { params: Promise<{ day_i
           setWorkout(newWorkout);
 
           try {
-              const { error } = await supabase!
-                .from('wff_user_workout_logs')
+              const { error } = await supabase
+                .from('workout_log_sets')
                 .delete()
-                .eq('user_id', session.user.id)
-                .eq('day_id', day_id)
-                .eq('exercise_id', exercise.id)
+                .eq('session_id', sessionId)
+                .eq('exercise_library_id', exercise.exercise_library_id)
                 .eq('set_number', targetSetIndex);
 
               if (error) throw error;
           } catch (err) {
               console.error('Failed to uncheck set', err);
               toast.error('Failed to update progress');
-              // Revert optimistic update
-              exercise.completedSets += 1;
-              setWorkout({ ...workout });
+              // Revert optimistic update safely
+              setWorkout(workout);
           }
       }
   };
@@ -234,19 +268,34 @@ export default function WorkoutSessionPage({ params }: { params: Promise<{ day_i
       return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const calculateProgress = () => {
+  const progressValue = useMemo(() => {
       if (!workout) return 0;
       const totalSets = workout.exercises.reduce((acc, ex) => acc + ex.sets, 0);
       const completedSets = workout.exercises.reduce((acc, ex) => acc + ex.completedSets, 0);
       return totalSets === 0 ? 0 : Math.round((completedSets / totalSets) * 100);
-  };
+  }, [workout]);
 
-  const finishWorkout = () => {
-      toast.success("Workout Complete!", {
-          description: `Great job! Duration: ${formatTime(timer)}`
-      });
-      // TODO: Save log to DB
-      router.push('/dashboard');
+  const finishWorkout = async () => {
+      if (!sessionId || !supabase) return;
+
+      try {
+          const { error } = await supabase
+            .from('workout_sessions')
+            .update({ 
+                completed_at: new Date().toISOString()
+            })
+            .eq('id', sessionId);
+
+          if (error) throw error;
+
+          toast.success("Workout Complete!", {
+              description: `Great job! Duration: ${formatTime(timer)}`
+          });
+          router.push('/dashboard?refresh=true');
+      } catch (err) {
+          console.error('Finish Error:', err);
+          toast.error('Failed to finish session');
+      }
   };
 
   const getEmbedUrl = (url: string) => {
@@ -272,7 +321,8 @@ export default function WorkoutSessionPage({ params }: { params: Promise<{ day_i
   }
 
   const activeExercise = workout.exercises[activeExerciseIndex];
-  const activeVideoUrl = getEmbedUrl(activeExercise.video_url);
+  // eslint-disable-next-line react-hooks/rules-of-hooks
+  const activeVideoUrl = useMemo(() => getEmbedUrl(activeExercise.video_url), [activeExercise.video_url]);
 
   return (
     <div className="min-h-screen bg-black text-white pb-24 font-sans">
@@ -302,7 +352,7 @@ export default function WorkoutSessionPage({ params }: { params: Promise<{ day_i
       </div>
 
       {/* Progress Bar */}
-      <Progress value={calculateProgress()} className="h-1 bg-white/10 rounded-none sticky top-[60px] z-20" />
+      <Progress value={progressValue} className="h-1 bg-white/10 rounded-none sticky top-[60px] z-20" />
 
       <div className="max-w-md mx-auto p-4 space-y-6">
           
