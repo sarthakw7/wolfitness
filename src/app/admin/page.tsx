@@ -1,8 +1,8 @@
-import { getEcosystemStats } from '@/services/admin';
+import { getPlatformStats } from '@/services/admin';
 import { Users, Dumbbell, CreditCard, ArrowUpRight } from 'lucide-react';
 
 export default async function AdminOverviewPage() {
-  const stats = await getEcosystemStats();
+  const stats = await getPlatformStats();
 
   const cards = [
     { label: 'Total Athletes', value: stats.totalUsers, icon: Users, trend: '+12%' },
@@ -18,7 +18,7 @@ export default async function AdminOverviewPage() {
           Command Center
         </span>
         <h1 className="text-4xl font-black tracking-tighter uppercase font-display">
-          Ecosystem Overview
+          Platform Overview
         </h1>
       </div>
 

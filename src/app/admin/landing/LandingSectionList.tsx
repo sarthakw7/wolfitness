@@ -10,15 +10,7 @@ import {
   ChevronRight
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-
-interface LandingSection {
-  id: string;
-  type: string;
-  title: string | null;
-  subtitle?: string | null;
-  is_active: boolean;
-  order_index: number;
-}
+import { LandingSection } from '@/services/admin';
 
 export function LandingSectionList({ initialSections }: { initialSections: LandingSection[] }) {
   const [sections, setSections] = useState(initialSections);

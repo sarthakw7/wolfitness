@@ -18,9 +18,9 @@ import { toast } from 'sonner';
 interface Creator {
   id: string;
   is_verified: boolean | null;
-  specialization?: string[] | null;
+  specializations?: string[] | null;
   headline?: string | null;
-  profiles: {
+  users: {
     email: string;
     full_name: string | null;
     username: string | null;
@@ -69,21 +69,21 @@ export function CreatorTable({ initialCreators }: { initialCreators: Creator[] }
                 <td className="p-6">
                   <div className="flex items-center gap-4">
                     <div className="h-10 w-10 bg-secondary border border-border overflow-hidden rounded-none shrink-0">
-                      {creator.profiles?.avatar_url ? (
-                        <img src={creator.profiles.avatar_url} alt="" className="h-full w-full object-cover" />
+                      {creator.users?.avatar_url ? (
+                        <img src={creator.users.avatar_url} alt="" className="h-full w-full object-cover" />
                       ) : (
                         <div className="h-full w-full flex items-center justify-center text-[10px] font-black uppercase opacity-20">
-                          {creator.profiles?.username?.slice(0, 2) || '??'}
+                          {creator.users?.username?.slice(0, 2) || '??'}
                         </div>
                       )}
                     </div>
                     <div className="space-y-0.5">
                       <p className="text-sm font-black uppercase tracking-tight font-display flex items-center gap-2">
-                        {creator.profiles?.full_name || creator.profiles?.username || 'Unknown'}
+                        {creator.users?.full_name || creator.users?.username || 'Unknown'}
                         {!!creator.is_verified && <CheckCircle2 className="h-3.5 w-3.5 text-blue-500 fill-blue-500/10" />}
                       </p>
                       <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide flex items-center gap-2">
-                        <Mail className="h-3 w-3" /> {creator.profiles?.email || 'No email'}
+                        <Mail className="h-3 w-3" /> {creator.users?.email || 'No email'}
                       </p>
                     </div>
                   </div>
@@ -92,8 +92,8 @@ export function CreatorTable({ initialCreators }: { initialCreators: Creator[] }
                 {/* Specialization */}
                 <td className="p-6">
                   <div className="flex flex-wrap gap-2">
-                    {creator.specialization?.length ? (
-                      creator.specialization.map(s => (
+                    {creator.specializations?.length ? (
+                      creator.specializations.map(s => (
                         <span key={s} className="text-[9px] font-black uppercase tracking-wider px-2 py-0.5 border border-border bg-secondary/50">
                           {s}
                         </span>
