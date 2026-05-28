@@ -48,7 +48,7 @@ export default function LoginPage() {
     if (!email.includes('@')) {
       try {
         const { data: profile, error } = await supabase!
-          .from('profiles')
+          .from('users')
           .select('email')
           .eq('username', data.identifier)
           .single();

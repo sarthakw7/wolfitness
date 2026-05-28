@@ -10,7 +10,7 @@ export default function RoleSelectionPage() {
   const router = useRouter();
   const { supabase, session } = useSupabase();
   const [isLoading, setIsLoading] = useState(false);
-  const [selectedRole, setSelectedRole] = useState<'consumer' | 'coach' | null>(null);
+  const [selectedRole, setSelectedRole] = useState<'client' | 'coach' | null>(null);
 
   const handleContinue = async () => {
     if (!selectedRole || !supabase || !session) return;
@@ -18,7 +18,7 @@ export default function RoleSelectionPage() {
     setIsLoading(true);
     try {
       const { error } = await supabase
-        .from('profiles')
+        .from('users')
         .update({ role: selectedRole })
         .eq('id', session.user.id);
 
@@ -39,7 +39,7 @@ export default function RoleSelectionPage() {
 
   const roles = [
     {
-      id: 'consumer' as const,
+      id: 'client' as const,
       icon: User,
       title: 'Athlete',
       subtitle: 'Train & Track',
@@ -66,7 +66,7 @@ export default function RoleSelectionPage() {
             Choose Your<br />Path.
           </h1>
           <p className="text-sm font-bold text-muted-foreground uppercase tracking-wide">
-            How will you operate within the ecosystem?
+            How will you operate within the platform?
           </p>
         </div>
 

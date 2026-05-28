@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabaseServer';
 import { redirect } from 'next/navigation';
 
-export type UserRole = 'consumer' | 'coach' | 'mentor' | 'admin';
+export type UserRole = 'client' | 'coach' | 'coach' | 'admin';
 
 export async function getSession() {
   const supabase = await createClient();
@@ -15,7 +15,7 @@ export async function getUserRole(): Promise<UserRole | null> {
 
   const supabase = await createClient();
   const { data: profile } = await supabase
-    .from('profiles')
+    .from('users')
     .select('role')
     .eq('id', session.user.id)
     .single();

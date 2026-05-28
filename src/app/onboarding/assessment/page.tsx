@@ -61,29 +61,29 @@ export default function AssessmentPage() {
       if (data.goal === 'endurance' || data.goal === 'fat_loss') calculatedVibe = 'Endurance';
       
       const { error: assessmentError } = await supabase!
-        .from('wff_vibe_assessments')
+        .from('onboarding_assessments')
         .insert({
           user_id: session.user.id,
-          answers: data as any,
+          raw_answers: data as any,
           calculated_vibe: calculatedVibe,
         });
 
       if (assessmentError) throw assessmentError;
 
       const { error: profileError } = await supabase!
-        .from('profiles')
+        .from('fitness_profiles')
         .update({
           gender: data.gender,
           date_of_birth: data.dob,
           height_cm: parseFloat(data.height),
           weight_kg: parseFloat(data.weight),
-          goal: data.goal,
+          primary_goal: data.goal,
           experience_level: data.experience_level,
           equipment_access: [data.equipment_access],
           injuries: data.injuries ? [data.injuries] : [],
           vibe_type: calculatedVibe,
         })
-        .eq('id', session.user.id);
+        .eq('user_id', session.user.id);
 
       if (profileError) throw profileError;
 

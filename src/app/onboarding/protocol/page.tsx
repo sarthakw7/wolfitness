@@ -120,7 +120,7 @@ export default function ProtocolOnboarding() {
         options: {
           data: {
             onboarding_completed: true,
-            role: 'consumer',
+            role: 'client',
             // Store the protocol findings
             vibe_type: data.goals[0] || 'Hybrid',
             protocol_data: data
@@ -133,14 +133,14 @@ export default function ProtocolOnboarding() {
       // Update the profile with assessment data
       if (authData.user) {
         const { error: profileError } = await supabase!
-          .from('profiles')
+          .from('fitness_profiles')
           .update({
-            goal: data.goals.join(', '),
+            primary_goal: data.goals.join(', '),
             gender: data.gender,
             vibe_type: data.goals[0] || 'Hybrid',
             updated_at: new Date().toISOString()
           })
-          .eq('id', authData.user.id);
+          .eq('user_id', authData.user.id);
         
         if (profileError) console.error('Profile update error:', profileError);
       }

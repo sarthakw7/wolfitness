@@ -10,7 +10,7 @@ export function useProfile() {
       if (!session?.user?.id) return null;
       
       const { data, error } = await supabase!
-        .from('profiles')
+        .from('users')
         .select('*')
         .eq('id', session.user.id)
         .single();

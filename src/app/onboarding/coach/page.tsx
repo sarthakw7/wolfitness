@@ -31,7 +31,7 @@ const coachSchema = z.object({
   weight: z.string().min(1, 'Weight is required'),
   
   // Professional
-  specialization: z.array(z.string()).min(1, 'Select at least one specialization'),
+  specializations: z.array(z.string()).min(1, 'Select at least one specializations'),
   years_experience: z.string().min(1, 'Experience is required'),
   certifications: z.string().min(1, 'Please list your certifications'),
   headline: z.string().min(10, 'Headline must be at least 10 characters'),
@@ -52,7 +52,7 @@ export default function CoachOnboardingPage() {
       dob: '',
       height: '',
       weight: '',
-      specialization: [],
+      specializations: [],
       years_experience: '',
       certifications: '',
       headline: '',
@@ -65,35 +65,35 @@ export default function CoachOnboardingPage() {
     if (!session?.user) return;
 
     try {
-      // Update both tables in parallel
-      const [profileUpdate, coachUpdate] = await Promise.all([
-        // 1. Update Personal Stats in 'profiles'
-        supabase!
-          .from('profiles')
-          .update({
-            gender: data.gender,
-            date_of_birth: data.dob,
-            height_cm: parseFloat(data.height),
-            weight_kg: parseFloat(data.weight),
-          })
-          .eq('id', session.user.id),
+      // 1. Update Fitness Profile for health data
+      const { error: fitnessError } = await supabase!
+        .from('fitness_profiles')
+        .upsert({
+          user_id: session.user.id,
+          gender: data.gender,
+          date_of_birth: data.dob,
+          height_cm: parseFloat(data.height),
+          weight_kg: parseFloat(data.weight),
+        });
 
-        // 2. Update Professional Data in 'coaches'
-        supabase!
-          .from('wff_creators')
-          .upsert({
-            id: session.user.id,
-            specialization: data.specialization,
-            years_experience: data.years_experience,
-            certifications: data.certifications,
-            headline: data.headline,
-            social_instagram: data.social_instagram,
+      if (fitnessError) throw fitnessError;
+
+      // 2. Update Professional Data in 'coaches'
+      const { error: coachError } = await supabase!
+        .from('coaches')
+        .upsert({
+          id: session.user.id,
+          specializations: data.specializations,
+          years_experience: parseInt(data.years_experience.split('-')[0]) || 1, // Extract number from range
+          certifications: data.certifications.split(',').map(c => c.trim()), // Convert to array
+          headline: data.headline,
+          social_links: {
+            instagram: data.social_instagram ? `https://instagram.com/${data.social_instagram.replace('@', '')}` : undefined,
             website: data.website,
-          })
-      ]);
+          },
+        });
 
-      if (profileUpdate.error) throw profileUpdate.error;
-      if (coachUpdate.error) throw coachUpdate.error;
+      if (coachError) throw coachError;
 
       toast.success('Coach profile active!', { description: 'Welcome to the team.' });
       router.push('/dashboard/coach');
@@ -121,7 +121,7 @@ export default function CoachOnboardingPage() {
     { value: '10+', label: '10+ Years', desc: 'Master Coach' },
   ];
 
-  // Helper to toggle specialization in array
+  // Helper to toggle specializations in array
   const toggleSpecialization = (value: string, current: string[], onChange: (val: string[]) => void) => {
     if (current.includes(value)) {
       onChange(current.filter((i) => i !== value));
@@ -219,7 +219,7 @@ export default function CoachOnboardingPage() {
                 
                 <FormField
                     control={form.control}
-                    name="specialization"
+                    name="specializations"
                     render={({ field }) => (
                         <FormItem>
                             <FormLabel>Specialization (Select all that apply)</FormLabel>

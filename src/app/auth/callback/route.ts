@@ -17,16 +17,15 @@ export async function GET(request: Request) {
     if (!error && data?.user) {
       // 1. Check if user already has a role
       const { data: profile } = await supabase
-        .from('profiles')
+        .from('users')
         .select('role')
         .eq('id', data.user.id)
         .single();
 
       // 2. Determine redirect: if role exists, go to dashboard. If not, go to next (onboarding).
       if (profile?.role) {
-          const dashboardUrl = (profile.role === 'coach' || profile.role === 'mentor') 
-            ? '/dashboard/coach' 
-            : '/dashboard';
+          const isCoach = (profile.role as string) === 'coach';
+          const dashboardUrl = isCoach ? '/dashboard/coach' : '/dashboard';
           return NextResponse.redirect(`${appUrl}${dashboardUrl}`);
       }
 

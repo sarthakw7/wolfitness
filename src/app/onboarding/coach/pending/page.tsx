@@ -32,7 +32,7 @@ export default function CoachPendingPage() {
                 Awaiting<br />Review.
             </h1>
             <p className="text-xs md:text-sm font-bold uppercase tracking-widest text-white/40 max-w-md mx-auto leading-relaxed">
-                Your application has been received. Our team is currently vetting your credentials to ensure ecosystem integrity.
+                Your application has been received. Our team is currently vetting your credentials to ensure platform integrity.
             </p>
           </div>
 
