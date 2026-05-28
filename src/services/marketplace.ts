@@ -5,15 +5,14 @@ import { createClient } from '@/lib/supabaseServer';
 export async function getAllCreators() {
   const supabase = await createClient();
   const { data, error } = await supabase
-    .from('wff_creators')
+    .from('coaches')
     .select(`
       id,
-      specialization,
+      specializations,
       years_experience,
       headline,
       is_verified,
-      endorsed_by_mentor_id,
-      profiles:id (
+      users:id (
         full_name,
         username,
         avatar_url,
@@ -28,14 +27,13 @@ export async function getAllCreators() {
 export async function getCreatorById(creatorId: string) {
   const supabase = await createClient();
   const { data, error } = await supabase
-    .from('wff_creators')
+    .from('coaches')
     .select(`
       *,
-      profiles:id (
+      users:id (
         full_name,
         username,
         avatar_url,
-        bio,
         role
       )
     `)
@@ -49,7 +47,7 @@ export async function getCreatorById(creatorId: string) {
 export async function getCreatorVerification(userId: string) {
   const supabase = await createClient();
   const { data, error } = await supabase
-    .from('wff_creators')
+    .from('coaches')
     .select('is_verified')
     .eq('id', userId)
     .maybeSingle();

@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabaseServer';
 export async function getEnrollmentsByUser(userId: string) {
   const supabase = await createClient();
   const { data, error } = await supabase
-    .from('wff_enrollments')
+    .from('enrollments')
     .select(`
       *,
       programs:program_id (
@@ -21,7 +21,7 @@ export async function getEnrollmentsByUser(userId: string) {
 export async function checkEnrollment(userId: string, programId: string) {
   const supabase = await createClient();
   const { data, error } = await supabase
-    .from('wff_enrollments')
+    .from('enrollments')
     .select('id')
     .eq('user_id', userId)
     .eq('program_id', programId)
@@ -34,7 +34,7 @@ export async function checkEnrollment(userId: string, programId: string) {
 export async function getEnrollmentCountForProgram(programId: string) {
   const supabase = await createClient();
   const { count, error } = await supabase
-    .from('wff_enrollments')
+    .from('enrollments')
     .select('id', { count: 'exact', head: true })
     .eq('program_id', programId);
 
@@ -47,7 +47,7 @@ export async function getActiveClientCount(creatorId: string) {
   
   // Get all program IDs by this creator
   const { data: programs } = await supabase
-    .from('wff_programs')
+    .from('programs')
     .select('id')
     .eq('creator_id', creatorId);
 
@@ -55,7 +55,7 @@ export async function getActiveClientCount(creatorId: string) {
 
   const programIds = programs.map(p => p.id);
   const { count, error } = await supabase
-    .from('wff_enrollments')
+    .from('enrollments')
     .select('id', { count: 'exact', head: true })
     .in('program_id', programIds)
     .eq('status', 'active');

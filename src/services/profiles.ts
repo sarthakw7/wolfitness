@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabaseServer';
 export async function getProfile(userId: string) {
   const supabase = await createClient();
   const { data, error } = await supabase
-    .from('profiles')
+    .from('users')
     .select('*')
     .eq('id', userId)
     .single();
@@ -17,7 +17,7 @@ export async function getProfile(userId: string) {
 export async function updateProfile(userId: string, updates: Record<string, any>) {
   const supabase = await createClient();
   const { data, error } = await supabase
-    .from('profiles')
+    .from('users')
     .update({ ...updates, updated_at: new Date().toISOString() })
     .eq('id', userId)
     .single();

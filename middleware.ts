@@ -52,28 +52,31 @@ export async function middleware(req: NextRequest) {
 
   // ─── GUARD 3: Role & Onboarding Validation ────────────────────────
   if (session && (isPrivateRoute || pathname === '/')) {
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role, vibe_type')
+    const { data: userProfile } = await supabase
+      .from('users')
+      .select('role, fitness_profiles(vibe_type)')
       .eq('id', session.user.id)
       .single();
 
+    const role = userProfile?.role;
+    const vibeType = (userProfile?.fitness_profiles as any)?.vibe_type;
+
     // Admin Guard
-    if (pathname.startsWith('/admin') && profile?.role !== 'admin') {
+    if (pathname.startsWith('/admin') && role !== 'admin') {
       return NextResponse.redirect(new URL('/dashboard', req.url));
     }
 
     // Role-based dashboard routing (only if exactly /dashboard)
     if (pathname === '/dashboard') {
-      if (profile?.role === 'coach' || profile?.role === 'mentor') {
+      if (role === 'coach') {
         return NextResponse.redirect(new URL('/dashboard/coach', req.url));
       }
     }
 
-    // Onboarding Guard: If consumer hasn't finished assessment, force it
+    // Onboarding Guard: If client hasn't finished assessment, force it
     if (
-      profile?.role === 'consumer' && 
-      !profile?.vibe_type && 
+      role === 'client' && 
+      !vibeType && 
       !pathname.startsWith('/onboarding') && 
       pathname !== '/'
     ) {
