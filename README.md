@@ -1,110 +1,128 @@
-# WOLFITNESS | The Performance Ecosystem
+# Wolfitness Web
 
-![WOLFITNESS Hero](https://images.unsplash.com/photo-1534438327276-14e5300c3a48?auto=format&fit=crop&q=80&w=1200)
+Next.js web application for the Wolfitness ecosystem.  
+This project is the backend + web source of truth for:
 
-**WOLFITNESS** is a high-performance fitness e-commerce and training platform designed for elite coaches and athletes. Built on a unified database architecture shared with the **Signal** network, it provides a seamless transition from professional mentorship to physical execution.
+- Authentication and onboarding
+- Marketplace and program access
+- Purchase/payment verification
+- AI nutrition endpoints
+- Supabase-backed athlete and coach data
 
----
+## Stack
 
-## ⚡ The Vision
-WOLFITNESS replaces fragmented training apps with a single, cinematic experience. It is built for the "Represent" aesthetic: sharp corners, monochrome palettes, and bold typography. It’s not just a tracker; it’s a marketplace for performance protocols.
+- Next.js 16 + React 19 (`app` router)
+- Supabase (Postgres + RLS + auth)
+- Stripe (checkout + webhook fulfillment)
+- React Query
+- Vercel AI SDK (`ai`) with provider integrations
 
----
-
-## 🚀 Key Features (V1 Complete)
-
-### **For Coaches & Mentors**
-*   **Professional Storefront:** A dedicated profile highlighting credentials, specializations, and verified status.
-*   **Hierarchical Program Builder:** Create complex training protocols organized by Weeks → Days → Exercises with video support.
-*   **Stripe Connect Integration:** Seamless onboarding for coaches to receive payouts (90/10 revenue split).
-*   **Franchise System:** Mentors can create "Master Templates" that other coaches can clone and sell (80/10/10 royalty split).
-
-### **For Athletes (Consumers)**
-*   **Vibe-Based Onboarding:** Proprietary biometric mapping to align training protocols with performance intent.
-*   **High-Fidelity Dashboard:** Real-time tracking of training streaks, volume trends, and active program progress.
-*   **Real-Time Workout Logger:** A tactile, mobile-first session interface with optimistic updates and haptic feedback.
-*   **Secure Checkout:** Integrated Stripe Checkout for instant access to premium protocols.
-
-### **For Administrators**
-*   **Network CMS:** Manage landing page content (Hero, Campaigns, Features) dynamically.
-*   **Quality Control:** A verification pipeline to vet and approve coaches entering the ecosystem.
-
----
-
-## 🛠 Tech Stack
-
-*   **Framework:** [Next.js 16 (React 19)](https://nextjs.org/) with Turbopack.
-*   **Styling:** [Tailwind CSS v4](https://tailwindcss.com/) (Custom "Represent" Design System).
-*   **Backend/Auth:** [Supabase](https://supabase.com/) (PostgreSQL, RLS Security, SSR Auth).
-*   **Payments:** [Stripe API](https://stripe.com/) (Connect, Checkout, Webhooks).
-*   **Icons:** [Lucide React](https://lucide.dev/).
-*   **State Management:** React Query & Server Actions.
-
----
-
-## 📂 Project Structure
+## Repository Structure
 
 ```text
 src/
-├── app/              # Next.js App Router (Dashboard, Marketplace, API)
-├── components/       # UI Library (Shadcn + Custom Landing Sections)
-├── hooks/            # Custom React Hooks (useProfile, etc.)
-├── lib/              # Shared utilities (Stripe, Supabase Clients)
-├── services/         # Data Access Layer (Clean separation of DB logic)
-├── types/            # Database and Application Type Definitions
-└── supabase/         # SQL Migrations and Security Policies
+├── app/              # Routes, layouts, API endpoints
+│   └── api/          # Server routes (AI, purchase, stripe, etc.)
+├── components/       # Reusable UI components
+├── hooks/            # React hooks (queries/mutations/state helpers)
+├── lib/              # Clients, utilities, shared server helpers
+├── services/         # Domain services and data access orchestration
+└── types/            # App and database TypeScript types
+
+supabase/
+├── migrations/       # SQL migrations
+└── seed/             # Optional seed scripts
 ```
 
----
+## Prerequisites
 
-## 🛠 Setup & Installation
+- Node.js 20+
+- npm 10+
+- Supabase project (URL + keys)
+- Stripe account (for paid marketplace flows)
 
-1.  **Clone the repository:**
-    ```bash
-    git clone https://github.com/your-repo/wolfitness.git
-    ```
-2.  **Install dependencies:**
-    ```bash
-    npm install
-    ```
-3.  **Environment Variables:**
-    Create a `.env.local` with the following:
-    ```env
-    NEXT_PUBLIC_SUPABASE_URL=your_url
-    NEXT_PUBLIC_SUPABASE_ANON_KEY=your_key
-    SUPABASE_SERVICE_ROLE_KEY=your_service_key
-    STRIPE_SECRET_KEY=your_stripe_key
-    STRIPE_WEBHOOK_SECRET=your_webhook_secret
-    NEXT_PUBLIC_APP_URL=http://localhost:3001
-    ```
-4.  **Database Migration:**
-    Apply the SQL files in `supabase/migrations/` to your Supabase instance.
-5.  **Run Development Server:**
-    ```bash
-    npm run dev
-    ```
+## Environment Variables
 
----
+Create `./.env.local`:
 
-## 📈 Next Steps (Roadmap)
+```env
+# Public Supabase
+NEXT_PUBLIC_SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_ANON_KEY=
 
-### **Phase 2: Signal Intelligence**
-*   **Bio-Sync:** Integrate real-time heart rate and effort metrics from wearable devices.
-*   **Signal Intel:** Implement the "Daily Signal" algorithm to adjust workout intensity based on recovery data.
+# Server-side Supabase
+SUPABASE_SERVICE_ROLE_KEY=
 
-### **Phase 3: Community & Scale**
-*   **Direct Messaging:** Secure communication channel between coaches and athletes.
-*   **Global Exercise Library:** Expansion of the movement database with 4K cinematic demonstrations.
-*   **Mobile App:** Wrapping the experience for iOS and Android via Capacitor.
+# App URL
+NEXT_PUBLIC_APP_URL=http://localhost:3000
 
----
+# Stripe
+STRIPE_SECRET_KEY=
+STRIPE_WEBHOOK_SECRET=
 
-## 🎨 Design Philosophy
-The UI follows the **Represent Style**:
-*   **Radius:** 0px (Strict sharp corners).
-*   **Palette:** Monochrome (Black, White, Slate).
-*   **Typography:** Bold, Uppercase, Italicized headers for a sense of urgency and speed.
+# AI provider keys (set based on active provider usage)
+OPENAI_API_KEY=
+GROQ_API_KEY=
+GOOGLE_GENERATIVE_AI_API_KEY=
+```
 
----
+Notes:
+- `NEXT_PUBLIC_*` values are exposed to the client bundle.
+- Keep server keys (`SUPABASE_SERVICE_ROLE_KEY`, Stripe, AI keys) private.
 
-&copy; 2026 WOLFITNESS. The Global Mastery Network.
+## Install and Run
+
+```bash
+npm install
+npm run dev
+```
+
+App runs on `http://localhost:3000` by default.
+
+## Scripts
+
+- `npm run dev` — start dev server
+- `npm run build` — production build
+- `npm run start` — run production server
+- `npm run lint` — run ESLint
+
+## Database and Migrations
+
+- SQL files are under `supabase/migrations/`.
+- Apply migrations in order to your Supabase project before local QA.
+- Use seed scripts from `supabase/seed/` when you need deterministic demo data.
+
+## Core API Domains
+
+- `src/app/api/ai/*` — nutrition estimation, coach/chat intelligence
+- `src/app/api/purchase/*` — purchase initialization and verification flows
+- `src/app/api/stripe/*` — Stripe webhook/payment handling
+
+## Mobile Integration Contract (wolfitness-expo)
+
+Mobile clients should call this web backend for server workflows:
+
+- AI endpoints
+- Purchase-init and payment state
+- Any server-verified access checks
+
+For Expo builds, mobile must use a public base URL (not `localhost`/LAN IP).
+
+## Deployment
+
+Recommended target: Vercel.
+
+Minimum deployment checks:
+
+1. Environment variables configured in hosting provider
+2. Stripe webhook endpoint configured and verified
+3. Supabase RLS policies migrated
+4. AI provider key configured for active AI route(s)
+
+## Troubleshooting
+
+- **401/403 on API routes**: verify bearer token/session handling path.
+- **Webhook not unlocking access**: confirm Stripe webhook secret and event delivery.
+- **AI endpoint 500**: check provider key/quota and server logs.
+- **Supabase query errors**: confirm migrations are fully applied and RLS allows route behavior.
+
