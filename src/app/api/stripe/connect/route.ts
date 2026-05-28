@@ -13,13 +13,13 @@ export async function POST(req: Request) {
 
     // 1. Get or Create WFF Creator record
     let { data: creator, error: creatorError } = await supabase
-      .from('wff_creators')
+      .from('coaches')
       .select('stripe_account_id, is_verified')
       .eq('id', session.user.id)
       .single();
 
     if (creatorError || !creator) {
-       // If they aren't in the wff_creators table yet, they shouldn't be here
+       // If they aren't in the coaches table yet, they shouldn't be here
        return NextResponse.json({ message: 'Creator profile not found' }, { status: 404 });
     }
 
@@ -48,7 +48,7 @@ export async function POST(req: Request) {
 
       // Save back to DB
       await supabase
-        .from('wff_creators')
+        .from('coaches')
         .update({ stripe_account_id: stripeAccountId })
         .eq('id', session.user.id);
     }

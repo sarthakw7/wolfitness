@@ -21,7 +21,7 @@ export async function GET(req: Request) {
 
   // 1. Verify program is free
   const { data: program, error: programError } = await supabase
-    .from('wff_programs')
+    .from('programs')
     .select('price')
     .eq('id', programId)
     .single();
@@ -36,13 +36,12 @@ export async function GET(req: Request) {
 
   // 2. Enroll the user
   const { error: enrollError } = await supabase
-    .from('wff_enrollments')
+    .from('enrollments')
     .insert({
       user_id: session.user.id,
       program_id: programId,
       status: 'active'
-    })
-    .single();
+    });
 
   // If already enrolled (unique constraint), just redirect to dashboard
   if (enrollError && !enrollError.message.includes('unique constraint')) {

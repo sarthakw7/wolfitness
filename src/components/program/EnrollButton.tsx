@@ -19,7 +19,7 @@ export function EnrollButton({ programId, price, isEnrolled }: EnrollButtonProps
   const handleEnroll = async () => {
     try {
       setLoading(true);
-      const response = await fetch('/api/stripe/checkout', {
+      const response = await fetch('/api/purchase/init', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ programId }),
@@ -32,8 +32,9 @@ export function EnrollButton({ programId, price, isEnrolled }: EnrollButtonProps
 
       if (!response.ok) throw new Error('Failed to create checkout session');
 
-      const { url } = await response.json();
-      window.location.href = url;
+      const { checkoutUrl } = await response.json();
+      if (!checkoutUrl) throw new Error('Checkout URL missing');
+      window.location.href = checkoutUrl;
     } catch (error) {
       console.error(error);
       toast.error('Something went wrong. Please try again.');
