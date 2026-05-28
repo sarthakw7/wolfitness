@@ -8,7 +8,7 @@ export function LandingFooter() {
       links: [
         { label: 'Marketplace', href: '/marketplace' },
         { label: 'Join Now', href: '/auth/signup' },
-        { label: 'Signal Mentors', href: '#' },
+        { label: 'Coaches', href: '/marketplace' },
         { label: 'Programs', href: '#' },
       ]
     },

@@ -14,11 +14,9 @@ interface CoachCardProps {
   username: string;
   avatarUrl?: string;
   headline: string;
-  specialization: string[];
+  specializations: string[];
   yearsExperience: string;
   rating?: number;
-  role?: string | null;
-  endorsedByMentorId?: string | null;
 }
 
 export function CoachCard({ 
@@ -27,47 +25,16 @@ export function CoachCard({
   username, 
   avatarUrl, 
   headline, 
-  specialization,
+  specializations,
   yearsExperience,
   rating,
-  role,
-  endorsedByMentorId
 }: CoachCardProps) {
-  const isMentor = role === 'mentor';
-  const isEndorsed = !!endorsedByMentorId;
-
   return (
-    <Card className={cn(
-        "overflow-hidden hover:shadow-xl transition-all duration-500 flex flex-col h-full",
-        isMentor ? "border-emerald-500/30 shadow-[0_0_20px_rgba(16,185,129,0.1)] ring-1 ring-emerald-500/20" : 
-        isEndorsed ? "border-blue-500/20 shadow-[0_0_15px_rgba(59,130,246,0.05)] ring-1 ring-blue-500/10" : "border-muted"
-    )}>
+    <Card className="overflow-hidden hover:shadow-xl transition-all duration-500 flex flex-col h-full border-muted">
       <CardHeader className="p-0">
-        <div className={cn(
-            "h-24 relative",
-            isMentor ? "bg-zinc-900" : 
-            isEndorsed ? "bg-gradient-to-r from-blue-900/20 to-indigo-900/20" : "bg-gradient-to-r from-primary/10 to-purple-500/10"
-        )}>
-            {isMentor ? (
-                <div className="absolute top-3 right-4">
-                    <Badge className="bg-emerald-500 text-black font-black text-[10px] tracking-widest uppercase border-none hover:bg-emerald-400 shadow-[0_0_10px_rgba(16,185,129,0.5)]">
-                        <Zap className="w-3 h-3 mr-1 fill-black" />
-                        Signal Elite
-                    </Badge>
-                </div>
-            ) : isEndorsed ? (
-                <div className="absolute top-3 right-4">
-                    <Badge className="bg-blue-600 text-white font-black text-[10px] tracking-widest uppercase border-none hover:bg-blue-500 shadow-[0_0_10px_rgba(37,99,235,0.3)]">
-                        <ShieldCheck className="h-3 w-3 mr-1" />
-                        Mentor Endorsed
-                    </Badge>
-                </div>
-            ) : null}
+        <div className="h-24 relative bg-gradient-to-r from-primary/10 to-purple-500/10">
             <div className="absolute -bottom-10 left-6">
-                <Avatar className={cn(
-                    "h-20 w-20 border-4 shadow-sm",
-                    isMentor ? "border-zinc-900" : "border-background"
-                )}>
+                <Avatar className="h-20 w-20 border-4 shadow-sm border-background">
                     <AvatarImage src={avatarUrl} />
                     <AvatarFallback className="text-lg font-bold bg-primary/10 text-primary">
                         {fullName.charAt(0)}
@@ -99,13 +66,13 @@ export function CoachCard({
         </p>
 
         <div className="flex flex-wrap gap-2 mb-4">
-            {specialization.slice(0, 3).map((spec) => (
+            {specializations.slice(0, 3).map((spec) => (
                 <Badge key={spec} variant="outline" className="capitalize">
                     {spec.replace('_', ' ')}
                 </Badge>
             ))}
-            {specialization.length > 3 && (
-                <Badge variant="outline">+{specialization.length - 3}</Badge>
+            {specializations.length > 3 && (
+                <Badge variant="outline">+{specializations.length - 3}</Badge>
             )}
         </div>
 

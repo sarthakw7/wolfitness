@@ -9,15 +9,14 @@ export default async function MarketplacePage() {
 
   // Fetch coaches with their profile data and endorsement status
   const { data: coaches, error } = await supabase
-    .from('wff_creators')
+    .from('coaches')
     .select(`
       id,
-      specialization,
+      specializations,
       years_experience,
       headline,
       is_verified,
-      endorsed_by_mentor_id,
-      profiles (
+      users (
         full_name,
         username,
         avatar_url,

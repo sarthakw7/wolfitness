@@ -22,13 +22,13 @@ export function FeaturesSection({
     },
     { 
       title: "Bio-Sync", 
-      desc: "Real-time physical effort metrics synchronized with Signal professional tracking.",
+      desc: "Real-time physical effort metrics synchronized with professional performance tracking.",
       num: "02",
       icon: Zap,
     },
     { 
-      title: "Global SSO", 
-      desc: "One high-performance identity across the entire mastery ecosystem.",
+      title: "Unified Identity", 
+      desc: "One high-performance identity across the entire training platform.",
       num: "03",
       icon: Dumbbell,
     }

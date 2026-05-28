@@ -28,7 +28,7 @@ const montserrat = Montserrat({
 
 export const metadata: Metadata = {
   title: "WOLFITNESS",
-  description: "The most advanced performance ecosystem for elite athletes.",
+  description: "The most advanced performance platform for elite athletes.",
   icons: {
     icon: '/favicon.svg',
   },

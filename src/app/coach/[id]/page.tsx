@@ -31,10 +31,10 @@ export default async function CoachProfilePage({ params }: { params: Promise<{ i
 
   // 1. Fetch Coach & Profile Details
   const { data: coach, error: coachError } = await supabase
-    .from('wff_creators')
+    .from('coaches')
     .select(`
       *,
-      profiles (
+      users (
         full_name,
         username,
         avatar_url,
@@ -50,13 +50,13 @@ export default async function CoachProfilePage({ params }: { params: Promise<{ i
 
   // 2. Fetch Published Programs
   const { data: programs } = await supabase
-    .from('wff_programs')
+    .from('programs')
     .select('*')
     .eq('creator_id', id)
     .eq('is_published', true)
     .order('created_at', { ascending: false });
 
-  const profile = coach.profiles;
+  const profile = (coach as any).users;
 
   // Mock Testimonials (for visual completeness)
   const testimonials = [
@@ -107,22 +107,22 @@ export default async function CoachProfilePage({ params }: { params: Promise<{ i
                       </p>
 
                       <div className="flex flex-wrap gap-4 pt-4">
-                           {coach.social_instagram && (
-                               <Link href={coach.social_instagram} target="_blank">
+                           {(coach.social_links as any)?.instagram && (
+                               <Link href={(coach.social_links as any).instagram} target="_blank">
                                    <Button variant="outline" size="sm" className="bg-white/5 border-white/10 text-white hover:bg-white/20 hover:text-white rounded-full">
                                        <Instagram className="h-4 w-4 mr-2" /> Instagram
                                    </Button>
                                </Link>
                            )}
-                           {coach.social_linkedin && (
-                               <Link href={coach.social_linkedin} target="_blank">
+                           {(coach.social_links as any)?.linkedin && (
+                               <Link href={(coach.social_links as any).linkedin} target="_blank">
                                    <Button variant="outline" size="sm" className="bg-white/5 border-white/10 text-white hover:bg-white/20 hover:text-white rounded-full">
                                        <Linkedin className="h-4 w-4 mr-2" /> LinkedIn
                                    </Button>
                                </Link>
                            )}
-                           {coach.website && (
-                               <Link href={coach.website} target="_blank">
+                           {(coach.social_links as any)?.website && (
+                               <Link href={(coach.social_links as any).website} target="_blank">
                                    <Button variant="outline" size="sm" className="bg-white/5 border-white/10 text-white hover:bg-white/20 hover:text-white rounded-full">
                                        <Globe className="h-4 w-4 mr-2" /> Website
                                    </Button>
@@ -295,9 +295,9 @@ export default async function CoachProfilePage({ params }: { params: Promise<{ i
                 <CardContent className="space-y-6">
                      <div>
                          <p className="text-xs font-bold text-muted-foreground uppercase mb-2">Certifications</p>
-                         {coach.certifications ? (
+                         {coach.certifications && coach.certifications.length > 0 ? (
                              <div className="flex flex-wrap gap-2">
-                                 {coach.certifications.split(',').map((cert: string, i: number) => (
+                                 {coach.certifications.map((cert: string, i: number) => (
                                      <Badge key={i} variant="outline" className="bg-background">
                                          {cert.trim()}
                                      </Badge>
@@ -311,7 +311,7 @@ export default async function CoachProfilePage({ params }: { params: Promise<{ i
                      <div>
                          <p className="text-xs font-bold text-muted-foreground uppercase mb-2">Specializations</p>
                          <div className="flex flex-wrap gap-2">
-                            {coach.specialization?.map((spec: string) => (
+                            {coach.specializations?.map((spec: string) => (
                                 <Badge key={spec} variant="secondary" className="px-3 py-1 capitalize">
                                     {spec.replace('_', ' ')}
                                 </Badge>

@@ -34,6 +34,11 @@ import { ModeToggle } from '@/components/ui/ModeToggle';
 
 const features: { title: string; href: string; description: string }[] = [
   {
+    title: 'Nutrition Hub',
+    href: '/dashboard/nutrition',
+    description: 'Track macros, log meals, and chat with your AI nutritionist.',
+  },
+  {
     title: 'AI Coaching',
     href: '#features',
     description: 'Personalized training plans powered by advanced algorithms.',

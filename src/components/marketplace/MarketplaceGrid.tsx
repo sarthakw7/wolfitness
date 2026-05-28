@@ -9,11 +9,10 @@ import { Badge } from '@/components/ui/badge';
 
 interface Coach {
   id: string;
-  specialization: string[];
+  specializations: string[];
   years_experience: string;
   headline: string;
-  endorsed_by_mentor_id: string | null;
-  profiles: {
+  users: {
     full_name: string;
     username: string;
     avatar_url: string | null;
@@ -34,9 +33,9 @@ export function MarketplaceGrid({ initialCoaches }: MarketplaceGridProps) {
   // Filter logic
   const filteredCoaches = initialCoaches.filter((coach) => {
     const query = searchQuery.toLowerCase();
-    const name = coach.profiles?.full_name?.toLowerCase() || '';
+    const name = coach.users?.full_name?.toLowerCase() || '';
     const headline = coach.headline?.toLowerCase() || '';
-    const specializations = coach.specialization?.map(s => s.toLowerCase()) || [];
+    const specializations = coach.specializations?.map(s => s.toLowerCase()) || [];
     
     // Text Match
     const matchesSearch = name.includes(query) || headline.includes(query) || specializations.some(s => s.includes(query));
@@ -125,14 +124,12 @@ export function MarketplaceGrid({ initialCoaches }: MarketplaceGridProps) {
                     <div key={coach.id} className="transition-all duration-300 hover:-translate-y-1">
                         <CoachCard
                             id={coach.id}
-                            fullName={coach.profiles?.full_name || 'Unknown Coach'}
-                            username={coach.profiles?.username || 'coach'}
-                            avatarUrl={coach.profiles?.avatar_url || undefined}
+                            fullName={coach.users?.full_name || 'Unknown Coach'}
+                            username={coach.users?.username || 'coach'}
+                            avatarUrl={coach.users?.avatar_url || undefined}
                             headline={coach.headline || 'Fitness Coach'}
-                            specialization={coach.specialization || []}
+                            specializations={coach.specializations || []}
                             yearsExperience={coach.years_experience || 'N/A'}
-                            role={coach.profiles?.role}
-                            endorsedByMentorId={coach.endorsed_by_mentor_id}
                         />
                     </div>
                 ))}

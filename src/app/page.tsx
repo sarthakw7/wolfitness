@@ -34,7 +34,7 @@ export default async function Home() {
       type: 'photo_campaign',
       title: 'Mindset Meets\nMuscle.',
       subtitle: '01 / The Integration',
-      description: 'WOLFITNESS links with the Signal Network to ensure your physical effort matches your mental authority.',
+      description: 'WOLFITNESS links physical effort with high-performance tracking to ensure every session counts.',
       media_url: 'https://images.unsplash.com/photo-1517836357463-d25dfeac3438?q=80&w=2070&auto=format&fit=crop',
       cta_text: 'Get Started',
       cta_href: '/auth/signup',
@@ -54,7 +54,7 @@ export default async function Home() {
       type: 'photo_campaign',
       title: 'Built By\nThe Elite.',
       subtitle: '03 / Coaches',
-      description: 'Every program is created by Signal-verified coaches. Proven methodology, real results.',
+      description: 'Every program is created by verified expert coaches. Proven methodology, real results.',
       media_url: 'https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?q=80&w=2070&auto=format&fit=crop',
       cta_text: 'Meet Coaches',
       cta_href: '/marketplace',
@@ -73,7 +73,6 @@ export default async function Home() {
         <div className="flex flex-col">
           {displaySections.map((section, index) => {
             const commonProps = {
-              key: section.id,
               id: section.anchor_tag || undefined,
               title: section.title || '',
               subtitle: section.subtitle || undefined,
@@ -86,6 +85,7 @@ export default async function Home() {
               case 'hero':
                 return (
                   <HeroSection 
+                    key={section.id}
                     {...commonProps} 
                     mediaUrl={section.media_url || undefined} 
                     priority={index === 0} 
@@ -95,13 +95,17 @@ export default async function Home() {
               case 'video_campaign':
                 return (
                   <CampaignSection 
+                    key={section.id}
                     {...commonProps} 
                     mediaUrl={section.media_url || ''} 
                   />
                 );
               case 'features':
                 return (
-                  <FeaturesSection {...commonProps} />
+                  <FeaturesSection 
+                    key={section.id}
+                    {...commonProps} 
+                  />
                 );
               default:
                 return null;

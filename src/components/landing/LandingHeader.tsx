@@ -13,7 +13,7 @@ export async function LandingHeader() {
   if (session) {
     try {
       const { data: profile } = await supabase
-        .from('profiles')
+        .from('users')
         .select('role, username, full_name')
         .eq('id', session.user.id)
         .single();

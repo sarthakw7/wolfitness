@@ -35,14 +35,14 @@ export default async function ProgramDetailsPage({ params }: { params: Promise<{
 
   // 1. Fetch Basic Program Details & Curriculum
   const { data: program, error: programError } = await supabase
-    .from('wff_programs')
+    .from('programs')
     .select(`
       *,
-      wff_program_weeks (
+      program_weeks (
         id,
         week_number,
         title,
-        wff_program_days (
+        program_days (
           id,
           day_number,
           title
@@ -59,29 +59,22 @@ export default async function ProgramDetailsPage({ params }: { params: Promise<{
 
   // 2. Fetch Creator & Profile Details separately
   const { data: creator } = await supabase
-    .from('wff_creators')
-    .select('id, headline, profiles:id(full_name, username, avatar_url, bio)')
+    .from('coaches')
+    .select('id, headline, users:id(full_name, username, avatar_url, bio)')
     .eq('id', program.creator_id)
     .maybeSingle();
 
-  // 3. Fetch Mentor Details separately if it's a franchise
-  const { data: mentor } = program.origin_mentor_id ? await (supabase as any)
-    .from('mentors')
-    .select('id, profiles:id(full_name)')
-    .eq('id', program.origin_mentor_id)
-    .maybeSingle() : { data: null };
-
   // Sort structure
-  const weeks = ((program as any).wff_program_weeks || []).sort((a: any, b: any) => a.week_number - b.week_number);
+  const weeks = ((program as any).program_weeks || []).sort((a: any, b: any) => a.week_number - b.week_number);
   weeks.forEach((w: any) => {
-      w.wff_program_days = (w.wff_program_days || []).sort((a: any, b: any) => a.day_number - b.day_number);
+      w.program_days = (w.program_days || []).sort((a: any, b: any) => a.day_number - b.day_number);
   });
 
   // 4. Check if user is already enrolled
   let isEnrolled = false;
   if (session) {
       const { data: enrollment } = await supabase
-        .from('wff_enrollments')
+        .from('enrollments')
         .select('id')
         .eq('user_id', session.user.id)
         .eq('program_id', id)
@@ -90,9 +83,8 @@ export default async function ProgramDetailsPage({ params }: { params: Promise<{
       if (enrollment) isEnrolled = true;
   }
 
-  const coachProfile = (creator as any)?.profiles;
+  const coachProfile = (creator as any)?.users;
   const coachHeadline = (creator as any)?.headline;
-  const mentorProfile = (mentor as any)?.profiles;
 
   return (
     <div className="min-h-screen bg-background">
@@ -131,12 +123,6 @@ export default async function ProgramDetailsPage({ params }: { params: Promise<{
 
                   {/* Header Content */}
                   <div className="flex-1 space-y-6 pb-4">
-                      {program.origin_mentor_id && (
-                          <div className="flex items-center gap-2 text-emerald-400 font-black text-[10px] tracking-[0.3em] uppercase bg-emerald-500/10 w-fit px-3 py-1.5 rounded-lg border border-emerald-500/20 shadow-[0_0_15px_rgba(16,185,129,0.15)]">
-                              <Library className="h-3 w-3" />
-                              Built on {mentorProfile?.full_name || 'Authority'} Framework
-                          </div>
-                      )}
                       <div className="flex flex-wrap gap-2 text-sm font-medium text-white/70 uppercase tracking-wider">
                           <span className="bg-white/10 px-2 py-1 rounded">{program.vibe_type || 'General Fitness'}</span>
                           <span className="flex items-center gap-1"><Users className="h-3 w-3" /> 120+ Enrolled</span>
@@ -189,7 +175,7 @@ export default async function ProgramDetailsPage({ params }: { params: Promise<{
                           <Dumbbell className="h-6 w-6 text-primary" />
                           <div>
                               <p className="text-xs text-muted-foreground uppercase font-bold">Workouts</p>
-                              <p className="font-bold">{weeks.reduce((acc: number, w: any) => acc + (w.wff_program_days?.length || 0), 0)} Sessions</p>
+                              <p className="font-bold">{weeks.reduce((acc: number, w: any) => acc + (w.program_days?.length || 0), 0)} Sessions</p>
                           </div>
                           </CardContent>
 
@@ -233,7 +219,7 @@ export default async function ProgramDetailsPage({ params }: { params: Promise<{
                                       </AccordionTrigger>
                                       <AccordionContent className="pb-4">
                                           <div className="space-y-1 pt-2">
-                                              {week.wff_program_days?.map((day: any) => (
+                                              {week.program_days?.map((day: any) => (
                                                   <div key={day.id} className="flex items-center justify-between p-3 hover:bg-muted/50 rounded-md transition-colors group">
                                                       <div className="flex items-center gap-3">
                                                           <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-primary text-xs font-bold">
@@ -252,7 +238,7 @@ export default async function ProgramDetailsPage({ params }: { params: Promise<{
                                                       )}
                                                   </div>
                                               ))}
-                                              {(!week.wff_program_days || week.wff_program_days.length === 0) && (
+                                              {(!week.program_days || week.program_days.length === 0) && (
                                                   <p className="text-sm text-muted-foreground italic pl-3">Recovery week or content coming soon.</p>
                                               )}
                                           </div>
