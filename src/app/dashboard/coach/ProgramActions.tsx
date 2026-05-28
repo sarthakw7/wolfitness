@@ -48,7 +48,7 @@ export function ProgramActions({ programId, programTitle }: ProgramActionsProps)
     setIsDeleting(true);
     try {
       const { error } = await supabase
-        .from('wff_programs')
+        .from('programs')
         .delete()
         .eq('id', programId);
 

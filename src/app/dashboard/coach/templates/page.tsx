@@ -16,19 +16,21 @@ export default async function TemplatesPage() {
 
   // Verify they are a coach
   const { data: profile } = await supabase
-    .from('profiles')
+    .from('users')
     .select('role')
     .eq('id', session.user.id)
     .single();
 
-  if (profile?.role !== 'coach' && profile?.role !== 'mentor') {
+  const role = profile?.role as string;
+
+  if (role !== 'coach') {
     redirect('/dashboard');
   }
 
   // Check verification
   const { data: creatorData } = await supabase
-    .from('wff_creators')
-    .select('is_verified, endorsed_by_mentor_id')
+    .from('coaches')
+    .select('is_verified')
     .eq('id', session.user.id)
     .single();
 
@@ -36,36 +38,15 @@ export default async function TemplatesPage() {
     redirect('/onboarding/coach');
   }
 
-  // Find mentors this coach is connected to. 
-  // 1. Check Signal enrollments
-  const { data: enrollments } = await (supabase as any)
-    .from('enrollments')
-    .select('mentor_id')
-    .eq('coach_id', session.user.id)
-    .eq('status', 'active');
-  
-  const mentorIds = (enrollments || []).map((e: any) => e.mentor_id);
-  
-  // 2. Add the mentor who endorsed them (if not already in list)
-  if (creatorData.endorsed_by_mentor_id && !mentorIds.includes(creatorData.endorsed_by_mentor_id)) {
-      mentorIds.push(creatorData.endorsed_by_mentor_id);
-  }
-
-  // Fetch Master Templates from those Mentors
-  let templates: any[] = [];
-  if (mentorIds.length > 0) {
-      const { data } = await supabase
-        .from('wff_programs')
-        .select(`
-            *,
-            profiles!wff_programs_creator_id_fkey(full_name, avatar_url)
-        `)
-        .in('creator_id', mentorIds)
-        .eq('is_master_template', true)
-        .order('created_at', { ascending: false });
-        
-      templates = data || [];
-  }
+  // Fetch all programs that can be used as templates (for now, any program)
+  const { data: templates } = await supabase
+    .from('programs')
+    .select(`
+        *,
+        users!programs_creator_id_fkey(full_name, avatar_url)
+    `)
+    .eq('is_published', true)
+    .order('created_at', { ascending: false });
 
   return (
     <div className="min-h-screen bg-muted/20">
@@ -76,21 +57,21 @@ export default async function TemplatesPage() {
           <div>
             <div className="flex items-center gap-2 text-indigo-600 mb-2">
                 <Library className="w-4 h-4" />
-                <span className="text-xs font-bold tracking-widest uppercase">Franchise Hub</span>
+                <span className="text-xs font-bold tracking-widest uppercase">Program Hub</span>
             </div>
-            <h1 className="text-3xl font-bold tracking-tight">Master Templates</h1>
+            <h1 className="text-3xl font-bold tracking-tight">Program Templates</h1>
             <p className="text-muted-foreground mt-1 max-w-2xl">
-              Clone proven frameworks from your Elite Mentors. Modify them for your niche, and sell them instantly. Revenue is automatically split 80/10/10 via Stripe.
+              Clone and customize existing programs to quickly launch new variations.
             </p>
           </div>
         </div>
 
-        {templates.length === 0 ? (
+        {!templates || templates.length === 0 ? (
             <div className="py-20 text-center border border-dashed rounded-2xl bg-background/50">
                 <ShieldCheck className="w-12 h-12 text-muted-foreground mx-auto mb-4 opacity-50" />
                 <h3 className="text-lg font-semibold">No Templates Available</h3>
                 <p className="text-muted-foreground text-sm mt-1 max-w-md mx-auto">
-                    You do not have any active Master Templates available from your Signal Mentors. Ensure you are enrolled with a Mentor on Signal who has published templates.
+                    There are currently no published programs available to use as templates.
                 </p>
             </div>
         ) : (
@@ -105,20 +86,20 @@ export default async function TemplatesPage() {
                             )}
                             <div className="absolute top-4 left-4">
                                 <Badge className="bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20 border-emerald-500/20">
-                                    <ShieldCheck className="w-3 h-3 mr-1" /> Mentor Proven
+                                    <ShieldCheck className="w-3 h-3 mr-1" /> Template
                                 </Badge>
                             </div>
                         </div>
                         <CardHeader>
                             <div className="flex justify-between items-start mb-2">
                                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">
-                                    By {template.profiles?.full_name || 'Mentor'}
+                                    By {(template as any).users?.full_name || 'Coach'}
                                 </p>
                                 <span className="font-bold text-foreground">${template.price.toFixed(2)}</span>
                             </div>
                             <CardTitle className="text-xl leading-tight group-hover:text-indigo-600 transition-colors">{template.title}</CardTitle>
                             <CardDescription className="line-clamp-2 mt-2 text-sm">
-                                {template.description || "A proven master template ready to be customized and sold to your audience."}
+                                {template.description || "A proven template ready to be customized and sold."}
                             </CardDescription>
                         </CardHeader>
                         <CardContent className="flex-grow">

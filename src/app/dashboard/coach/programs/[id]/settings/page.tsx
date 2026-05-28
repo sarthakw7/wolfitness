@@ -83,7 +83,7 @@ export default function ProgramSettingsPage({ params }: { params: Promise<{ id: 
   const fetchProgram = async () => {
       try {
           const { data, error } = await supabase!
-            .from('wff_programs')
+            .from('programs')
             .select('*')
             .eq('id', id)
             .single();
@@ -112,7 +112,7 @@ export default function ProgramSettingsPage({ params }: { params: Promise<{ id: 
     setIsSaving(true);
     try {
       const { error } = await supabase!
-        .from('wff_programs')
+        .from('programs')
         .update({
           title: data.title,
           description: data.description,
@@ -139,7 +139,7 @@ export default function ProgramSettingsPage({ params }: { params: Promise<{ id: 
   const handleDelete = async () => {
       try {
           const { error } = await supabase!
-            .from('wff_programs')
+            .from('programs')
             .delete()
             .eq('id', id);
           
@@ -321,7 +321,7 @@ export default function ProgramSettingsPage({ params }: { params: Promise<{ id: 
                                 )}
                             />
 
-                            {profile?.role === 'mentor' && (
+                            {profile?.role === 'coach' && (
                                 <FormField
                                     control={form.control}
                                     name="is_master_template"

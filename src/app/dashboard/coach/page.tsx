@@ -18,7 +18,6 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import Navbar from '@/components/Navbar';
-import { DailySignal } from '@/components/dashboard/DailySignal';
 import { RevenueChart } from '@/components/dashboard/RevenueChart';
 import { ProgramActions } from './ProgramActions';
 
@@ -32,21 +31,23 @@ export default async function CoachDashboardPage() {
     redirect('/auth/login');
   }
 
-  // Fetch profile
+  // Fetch profile with fitness stats
   const { data: profile } = await supabase
-    .from('profiles')
-    .select('*')
+    .from('users')
+    .select('*, fitness_profiles(*)')
     .eq('id', session.user.id)
     .single();
 
-  if (profile?.role !== 'coach' && profile?.role !== 'mentor') {
-      redirect('/dashboard'); // Redirect consumers back to their dashboard
+  const role = profile?.role as string;
+
+  if (role !== 'coach') {
+      redirect('/dashboard'); // Redirect clients back to their dashboard
   }
 
   // Enforce Verification Gate for Coaches
-  if (profile?.role === 'coach') {
+  if (role === 'coach') {
       const { data: creatorData } = await supabase
-        .from('wff_creators')
+        .from('coaches')
         .select('is_verified')
         .eq('id', session.user.id)
         .single();
@@ -57,24 +58,26 @@ export default async function CoachDashboardPage() {
       }
   }
 
-  // Auto-create wff_creators storefront for Mentors
-  if (profile?.role === 'mentor') {
-    const { data: mentorStorefront } = await supabase
-      .from('wff_creators')
+  // Auto-create coaches storefront
+  if (role === 'coach') {
+    const { data: coachStorefront } = await supabase
+      .from('coaches')
       .select('id')
       .eq('id', session.user.id)
-      .single();
+      .maybeSingle();
 
-    if (!mentorStorefront) {
+    if (!coachStorefront) {
       await supabase
-        .from('wff_creators')
+        .from('coaches')
         .insert({
           id: session.user.id,
-          is_verified: true,
-          headline: 'Elite Signal Mentor',
+          is_verified: false,
+          headline: 'Elite Coach',
         });
     }
   }
+
+  const fitnessProfile = (profile as any)?.fitness_profiles;
 
   const calculateAge = (dob: string) => {
       if (!dob) return '--';
@@ -84,11 +87,11 @@ export default async function CoachDashboardPage() {
       return Math.abs(ageDate.getUTCFullYear() - 1970);
   };
 
-  const bmi = (profile?.weight_kg && profile?.height_cm) 
-    ? (profile.weight_kg / Math.pow(profile.height_cm / 100, 2)).toFixed(1) 
+  const bmi = (fitnessProfile?.weight_kg && fitnessProfile?.height_cm) 
+    ? (fitnessProfile.weight_kg / Math.pow(fitnessProfile.height_cm / 100, 2)).toFixed(1) 
     : '--';
   
-  const age = calculateAge(profile?.date_of_birth || '');
+  const age = calculateAge(fitnessProfile?.date_of_birth || '');
 
   // Coach Mock Data
   const stats = [
@@ -130,7 +133,7 @@ export default async function CoachDashboardPage() {
 
   // Fetch real programs
   const { data: myPrograms } = await supabase
-    .from('wff_programs')
+    .from('programs')
     .select('*')
     .eq('creator_id', session.user.id)
     .order('created_at', { ascending: false });
@@ -170,10 +173,6 @@ export default async function CoachDashboardPage() {
                         </Button>
                     </Link>
                 </div>
-            </div>
-
-            <div className="mb-8">
-                <DailySignal />
             </div>
 
             {/* Stats Grid */}
@@ -335,11 +334,11 @@ export default async function CoachDashboardPage() {
                                 </div>
                                 <div className="bg-background rounded-lg p-3 border">
                                     <p className="text-xs text-muted-foreground">Height</p>
-                                    <p className="text-lg font-bold">{profile?.height_cm ? `${profile.height_cm} cm` : '--'}</p>
+                                    <p className="text-lg font-bold">{fitnessProfile?.height_cm ? `${fitnessProfile.height_cm} cm` : '--'}</p>
                                 </div>
                                 <div className="bg-background rounded-lg p-3 border">
                                     <p className="text-xs text-muted-foreground">Gender</p>
-                                    <p className="text-lg font-bold capitalize">{profile?.gender || '--'}</p>
+                                    <p className="text-lg font-bold capitalize">{fitnessProfile?.gender || '--'}</p>
                                 </div>
                             </div>
                         </CardContent>

@@ -73,7 +73,7 @@ export default function NewProgramPage() {
       // We should verify they are actually a coach, but RLS will also block if not.
       
       const { error } = await supabase!
-        .from('wff_programs')
+        .from('programs')
         .insert({
           creator_id: session.user.id,
           title: data.title,
@@ -261,7 +261,7 @@ export default function NewProgramPage() {
                             )}
                         />
 
-                        {profile?.role === 'mentor' && (
+                        {profile?.role === 'coach' && (
                             <FormField
                                 control={form.control}
                                 name="is_master_template"
